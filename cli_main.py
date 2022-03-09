@@ -79,4 +79,4 @@ for contig in motifs_lines:
 
 
 
-    save_results(contig_passed_motifs, sp + '/passed_motifs_{}.fasta'.format(contig))
+    save_results(contig_passed_motifs, outdir + '/passed_motifs_{}.fasta'.format(contig))

@@ -28,37 +28,52 @@ def get_statistics(
 ):
 
     print('Getting difsignals...')
-    ks_stats = []
-    effsizes = []
+    
 
-    motifs_line = []
+    contigs = list(native_motifs.keys())
 
-    cnt = 1
+    motifs_lines = {}
+    ks_stat_lines = {}
+    effsize_lines = {}
 
-    motifs = list(native_motifs.keys())
+    for contig in contigs:
+        ks_stat_line = []
+        effsize_line = []
+        motifs_line = []
+    
+        cnt = 1
 
-    for MOTIF in motifs:
-        print('{} from {}'.format(cnt, len(motifs)), end='')
-        
-        try:
-            s1 = sample(native_motifs[MOTIF], maxsamplesize)
-        except ValueError:
-            s1 = native_motifs[MOTIF]
+
+        for MOTIF in native_motifs[contig]:
+            print('{}: {} from {}'.format(contig, cnt, len(native_motifs[contig])), end='')
             
-        try:
-            s2 = sample(wga_motifs[MOTIF], maxsamplesize)
-        except ValueError:
-            s2 = wga_motifs[MOTIF]
-        
-        if len(s1) < minsamplesize or len(s2) < minsamplesize:
-            continue
-        
-        ks_stats.append(ks_2samp(s1,s2, mode='asymp')[1])
-        effsizes.append(cohend(s1, s2)) 
-        
-        motifs_line.append(MOTIF)
-        cnt += 1
-        print('\r', end ='')
+            try:
+                s1 = sample(native_motifs[contig][MOTIF], maxsamplesize)
+            except ValueError:
+                s1 = native_motifs[contig][MOTIF]
+                
+            try:
+                s2 = sample(wga_motifs[contig][MOTIF], maxsamplesize)
+            except ValueError:
+                s2 = wga_motifs[contig][MOTIF]
+            
+            if len(s1) < minsamplesize or len(s2) < minsamplesize:
+                print('\r', end ='')
+                continue
+            
+            ks_stat_line.append(ks_2samp(s1,s2, mode='asymp')[1])
+            effsize_line.append(cohend(s1, s2)) 
+            
+            motifs_line.append(MOTIF)
+            cnt += 1
+            print('\r', end ='')
+        print()
+
+        effsize_lines[contig] = effsize_line
+        ks_stat_lines[contig] = ks_stat_line
+        motifs_lines[contig] = motifs_line
+
+    return motifs_lines, ks_stat_lines, effsize_lines
 
 
 def get_difsignals(
@@ -83,12 +98,13 @@ def get_difsignals(
 
 def save_results (motifs, out_fasta):
 
-    with open(out_fasta) as f:
+    with open(out_fasta, 'w') as f:
         
         cnt = 1
 
         for m in motifs:
-            out_fasta.write('>MOTIF_{}\n{}\n'.format(cnt, m))
+            f.write('>MOTIF_{}\n{}\n'.format(cnt, m))
+            cnt += 1
 
 
 
