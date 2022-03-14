@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 from webbrowser import get
 from extract_motifs import get_seqs, extract_motifs, merge_motifs, collapse_motifs
 from plot_motifs import plot_motif
-from parse_data import parse_data
+from parse_data_mt import parse_data
 from compute_statistics import get_difsignals, get_statistics, save_results
 from compute_statistics import SAMPLESIZE, MINSAMPLESIZE, LOG10_PVAL_TRH, EFFSIZE_TRH
 import os
@@ -17,6 +17,8 @@ parser.add_argument('-ks_t', type=int, default=50, help='-log ks_test p-value (d
 parser.add_argument('-eff_size', type=float, default=0.25, help='Cohen d-effect size (default 0.25)')
 parser.add_argument('-outdir', type=str, default='default', help='output directory name')
 parser.add_argument('-n_batches', type=int, default=100, help='number of parsed fast5 batches')
+parser.add_argument('-n_threads', type=int, default=8, help='number of threads used (default 8)')
+
 
 args = parser.parse_args()
 
@@ -28,6 +30,7 @@ sample_shifts, sample_reverse_shifts, sample_motifs, sample_reverse_motifs = par
     args.reference, 
     target_chr='all', 
     n_batches=args.n_batches, 
+    threads=args.n_threads
 )
 
 
@@ -37,6 +40,7 @@ control_shifts, control_reverse_shifts, control_motifs, control_reverse_motifs =
     args.reference, 
     target_chr='all', 
     n_batches=args.n_batches, 
+    threads=args.n_threads
 )
 
 

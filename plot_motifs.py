@@ -33,13 +33,14 @@ def get_variants(seq):
     return variants
 
 
-def plot_motif(native_signals: dict, wga_signals: dict, motif: str):
+def plot_motif(native_signals: dict, wga_signals: dict, motif: str, outputdir):
         
 
     motif_variants = get_variants(motif)
 
+    print('Creating pdf for {}'.format(motif))
     fig, axs = plt.subplots(
-        len(motif_variants), 
+        1, len(motif_variants), 
         figsize=(5*len(motif_variants),5)
     )
 
@@ -47,14 +48,25 @@ def plot_motif(native_signals: dict, wga_signals: dict, motif: str):
     for i in range(len(motif_variants)):
         MOTIF = motif_variants[i]
 
-        axs[i].hist(
-                native_signals[MOTIF], alpha=0.5, bins=100, density=True, label='native'
-            )
-        axs[i].hist(
-                wga_signals[MOTIF], alpha=0.5, bins=100, density=True, label='wga'
-            )
-        
-        axs[i].set_title(MOTIF)
+        try:
+            axs[i].hist(
+                    native_signals[MOTIF], alpha=0.5, bins=100, density=True, label='native'
+                )
+            axs[i].hist(
+                    wga_signals[MOTIF], alpha=0.5, bins=100, density=True, label='wga'
+                )
+            
+            axs[i].set_title(MOTIF)
+        except TypeError:
+            
+            axs.hist(
+                    native_signals[MOTIF], alpha=0.5, bins=100, density=True, label='native'
+                )
+            axs.hist(
+                    wga_signals[MOTIF], alpha=0.5, bins=100, density=True, label='wga'
+                )
+            
+            axs.set_title(MOTIF)
 
-    #plt.savefig('tnp/check3.png', dpi=400)
-    plt.show()
+    plt.savefig('{}/{}.pdf'.format(outputdir, motif))
+    plt.close()

@@ -7,7 +7,7 @@ SAMPLESIZE = 1000
 MINSAMPLESIZE = 100
 
 
-LOG10_PVAL_TRH = 10
+LOG10_PVAL_TRH = 50
 EFFSIZE_TRH = 0.25
 
 
@@ -59,6 +59,7 @@ def get_statistics(
             
             if len(s1) < minsamplesize or len(s2) < minsamplesize:
                 print('\r', end ='')
+                cnt += 1
                 continue
             
             ks_stat_line.append(ks_2samp(s1,s2, mode='asymp')[1])
@@ -105,6 +106,4 @@ def save_results (motifs, out_fasta):
         for m in motifs:
             f.write('>MOTIF_{}\n{}\n'.format(cnt, m))
             cnt += 1
-
-
 
