@@ -11,7 +11,7 @@ This tool provide a new two-sided and balanced approch to compute statistic for 
 
 ## Usage
 
-Firstly, fast5 files should and resquiggled using [Tombo](https://github.com/nanoporetech/tombo) software. 
+Firstly, fast5 files should be resquiggled using [Tombo](https://github.com/nanoporetech/tombo) software. 
 After resquiggling, fast5 files should be converted to multi-fast5 format.
 
 ```
@@ -25,7 +25,7 @@ optional arguments:
   -control_fast5dir CONTROL_FAST5DIR
                         control multi fast54 dir
   -reference REFERENCE  reference fasta
-  -ks_t KS_T            -log ks_test p-value (default 10)
+  -ks_t KS_T            -log ks_test p-value (default 50)
   -eff_size EFF_SIZE    Cohen d-effect size (default 0.25)
   -outdir OUTDIR        output directory name (default Results_%yyyy_%mm_%dd_%hhmmss)
   -n_batches N_BATCHES  number of parsed fast5 batches (default all)
@@ -42,4 +42,4 @@ The authors recommend to specify the same values for `-n_batches` and `-n_thread
 The output directory contains the following files:
 - `passed_motifs_[contig_name].fasta` - all k-mers defined as modifed
 - `final_motifs_[contig_name].fasta` - optimal set of motifs obtained from the passed motifs with greedy algorithm
-- `plots_[contigname]` - signal distributions for all motifs detected 
+- `plots_[contig_name]` - signal distributions for all motifs detected 
