@@ -15,7 +15,7 @@ Firstly, fast5 files should be resquiggled using [Tombo](https://github.com/nano
 After resquiggling, fast5 files should be converted to multi-fast5 format.
 
 ```
-usage: cli_main_mt.py [-h] [-sample_fast5dir SAMPLE_FAST5DIR] [-control_fast5dir CONTROL_FAST5DIR] [-reference REFERENCE] [-ks_t KS_T] [-eff_size EFF_SIZE] [-outdir OUTDIR] [-n_batches N_BATCHES]
+usage: snapper [-h] [-sample_fast5dir SAMPLE_FAST5DIR] [-control_fast5dir CONTROL_FAST5DIR] [-reference REFERENCE] [-ks_t KS_T] [-eff_size EFF_SIZE] [-outdir OUTDIR] [-n_batches N_BATCHES]
                       [-n_threads N_THREADS]
 
 optional arguments:

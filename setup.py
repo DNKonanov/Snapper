@@ -1,0 +1,35 @@
+import setuptools
+
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
+setuptools.setup(
+    name="snapper",
+    version="0.1.3",
+    author="D.N. Kononov",
+    author_email="konanovdmitriy@gmail.com",
+    description="Nanopore-based methylation sites caller",
+    long_description="snapper",
+    long_description_content_type="",
+    url="https://github.com/DNKonanov/Snapper",
+    project_urls={
+        "Bug Tracker": "https://github.com/DNKonanov/Snapper",
+    },
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    python_requires=">=3.7",
+    include_package_data=True,
+    packages=['snapper', 'snapper.src'],
+    install_requires=[
+        'h5py',
+        'biopython',
+    ],
+    entry_points={
+        'console_scripts': [
+            'snapper=snapper.snapper:main'
+        ]
+    }
+)

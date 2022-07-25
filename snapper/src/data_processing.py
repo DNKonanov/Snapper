@@ -1,0 +1,219 @@
+from multiprocessing import Pool
+from unittest import result
+from webbrowser import get
+import numpy as np
+import h5py
+from itertools import product
+from Bio.SeqIO import parse
+from Bio.Seq import reverse_complement
+import os
+
+letters = ['A','G','C','T']
+
+
+TARGET_CHRS = ['all', 'divided', 'longest', 'specified']
+
+
+def _get_motifs(k = 6):
+
+    return [''.join(s) for s in list(product(letters, repeat=k))]
+
+
+
+
+def get_reference(reference_file, target_chr):
+
+    ref_file = parse(reference_file, format='fasta')
+
+    
+    if target_chr == 'all':
+
+        refs = {}
+        reverse_refs = {}        
+        for rec in ref_file:
+            
+            seq = str(rec.seq)
+            contig = str(rec.description).split(' ')[0]
+            refs[contig] = seq
+            reverse_refs[contig] = reverse_complement(seq)
+        return refs, reverse_refs
+    
+    if target_chr == 'longest':
+        length = 0
+
+        refs = {}
+        reverse_refs = {}
+
+        for rec in ref_file:
+            
+            contig = str(rec.description).split(' ')[0]
+            if len(rec.seq) > length:
+                seq = str(rec.seq)
+                
+                refs = {contig : seq}
+                reverse_refs = {contig : reverse_complement(seq)}
+                length = str(rec.seq)
+
+        return refs, reverse_refs
+
+    else:
+        refs = {}
+        reverse_refs = {}
+        for rec in ref_file:
+            contig = str(rec.description).split(' ')[0]
+            if contig == target_chr:
+                seq = str(rec.seq)
+
+                refs[target_chr] = seq
+                reverse_refs[target_chr] = reverse_complement(seq)
+        
+        if len(refs) == 0:
+            raise KeyError('{} contig does not exist!'.format(target_chr))
+
+        return refs, reverse_refs
+
+    
+
+
+def _parse_data_single_file(fast5file, refs, reverse_refs, MOTIF_LEN):
+    print('Collecting data from {}...'.format(fast5file))
+
+    
+    motifs = {}
+    shifts = {}
+
+    reverse_motifs = {}
+    reverse_shifts = {}
+
+    for ref in refs:
+        motifs[ref] = {
+            motif: [] for motif in _get_motifs(k = MOTIF_LEN)
+        }
+        reverse_motifs[ref] = {
+            motif: [] for motif in _get_motifs(k = MOTIF_LEN)
+        }
+
+        shifts[ref] = {
+            i: [] for i in range(len(refs[ref]))
+        }
+        reverse_shifts[ref] = {
+            i: [] for i in range(len(reverse_refs[ref]))
+        }
+
+    with h5py.File(fast5file, 'r', rdcc_nbytes=1024**3) as file:
+
+        for i in list(file.items()):
+            
+            readname = i[0]
+            try:
+                trace = file['/{}/Analyses/RawGenomeCorrected_000/BaseCalled_template/Events'.format(readname)][:]
+
+            except KeyError:
+                continue
+                
+            chrom = file['/{}/Analyses/RawGenomeCorrected_000/BaseCalled_template/Alignment'.format(readname)].attrs['mapped_chrom']  
+                
+                
+            seq = [t[4].decode() for t in trace]
+
+            str_seq = ''.join(seq).upper()
+
+            
+        
+            f = refs[chrom].find(str_seq)
+            
+            if f != -1:
+
+                for i in range(3, len(seq) - 3):
+                    context = str_seq[i-3:i+3]
+
+                    shifts[chrom][f + i].append(trace[i][0])
+
+                    motifs[chrom][context].append(trace[i][0])
+
+                continue
+            
+        
+            f_reverse = reverse_refs[chrom].find(str_seq)
+            
+            if f_reverse != -1:
+                
+
+                for i in range(3, len(seq) - 3):
+                    context = str_seq[i-3:i+3]
+
+                    reverse_shifts[chrom][f + i].append(trace[i][0])
+
+                    reverse_motifs[chrom][context].append(trace[i][0])
+
+        
+        print('{} has been loaded'.format(fast5file))
+
+    return shifts, reverse_shifts, motifs, reverse_motifs
+
+
+def parse_data(fast5dir, reference_file, target_chr='all', n_batches=np.inf, MOTIF_LEN=6, threads=8):
+
+    refs, reverse_refs = get_reference(reference_file, target_chr)
+    
+    motifs = {}
+    shifts = {}
+
+    reverse_motifs = {}
+    reverse_shifts = {}
+
+    for ref in refs:
+        motifs[ref] = {
+            motif: [] for motif in _get_motifs(k = MOTIF_LEN)
+        }
+        reverse_motifs[ref] = {
+            motif: [] for motif in _get_motifs(k = MOTIF_LEN)
+        }
+
+        shifts[ref] = {
+            i: [] for i in range(len(refs[ref]))
+        }
+        reverse_shifts[ref] = {
+            i: [] for i in range(len(reverse_refs[ref]))
+        }
+
+    args = [
+        (fast5dir + '/' + file, refs, reverse_refs, MOTIF_LEN) for file in os.listdir(fast5dir) if '.fast5' in file
+    ][:n_batches]
+
+    batch = 1
+    with Pool(threads) as pool:
+        results = list(pool.starmap(_parse_data_single_file, args))
+
+    for res in results:
+
+        # shifts
+        for contig in res[0]:
+            for pos in res[0][contig]:
+                shifts[contig][pos] += res[0][contig][pos]
+
+        # reverse shifts
+        for contig in res[1]:
+            for pos in res[1][contig]:
+                reverse_shifts[contig][pos] += res[1][contig][pos]
+
+        # motifs
+        for contig in res[2]:
+            for motif in res[2][contig]:
+                motifs[contig][motif] += res[2][contig][motif]
+
+        # reverse motifs
+        for contig in res[3]:
+            for motif in res[3][contig]:
+                reverse_motifs[contig][motif] += res[3][contig][motif]
+        
+
+    del results
+
+    return shifts, reverse_shifts, motifs, reverse_motifs
+
+
+
+
+    
+
