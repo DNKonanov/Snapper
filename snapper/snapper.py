@@ -6,6 +6,7 @@ from snapper.src.data_processing import parse_data
 from snapper.src.statistics import get_difsignals, get_statistics, save_results
 from snapper.src.statistics import SAMPLESIZE, MINSAMPLESIZE, LOG10_PVAL_TRH, EFFSIZE_TRH
 import os
+import sys
 
 
 
@@ -23,8 +24,10 @@ def main():
     parser.add_argument('-eff_size', type=float, default=0.25, help='Cohen d-effect size (default 0.25)')
     parser.add_argument('-outdir', type=str, default='default', help='output directory name')
     parser.add_argument('-n_batches', type=int, default=100, help='number of parsed fast5 batches')
-    parser.add_argument('-n_threads', type=int, default=8, help='number of threads used (default 8)')
-
+    
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
     args = parser.parse_args()
 
@@ -36,8 +39,9 @@ def main():
         args.reference, 
         target_chr='all', 
         n_batches=args.n_batches, 
-        threads=args.n_threads
     )
+
+    print('dsflsdkfjsldfkjdslfjk')
 
 
     print('\nControl data collecting...')
@@ -46,13 +50,22 @@ def main():
         args.reference, 
         target_chr='all', 
         n_batches=args.n_batches, 
-        threads=args.n_threads
     )
 
 
+    print('\nForward strand singnals processing...')
     motifs_lines, ks_stat_lines, effsize_lines = get_statistics(
         sample_motifs, 
         control_motifs, 
+        maxsamplesize=SAMPLESIZE,
+        minsamplesize=MINSAMPLESIZE,
+    )
+
+
+    print('\Reverse strand singnals processing...')
+    reverse_motifs_lines, reverse_ks_stat_lines, reverse_effsize_lines = get_statistics(
+        sample_reverse_motifs, 
+        control_reverse_motifs, 
         maxsamplesize=SAMPLESIZE,
         minsamplesize=MINSAMPLESIZE,
     )
@@ -75,9 +88,12 @@ def main():
         raise FileExistsError('The specified output dir already exists!')
         
 
+
+    # MOTIFS EXTRACTION
+
     for contig in motifs_lines:
 
-        print('Processing {}...'.format(contig))
+        print('Processing forward motifs {}...'.format(contig))
             
 
         contig_passed_motifs = get_difsignals(
@@ -88,7 +104,7 @@ def main():
             effsize_thr = args.eff_size
         )
 
-        plotdir = outdir + '/plots_{}'.format(contig) 
+        plotdir = outdir + '/plots_forward_{}'.format(contig) 
         os.mkdir(plotdir)
 
         motifs = collapse_motifs(extract_motifs(contig_passed_motifs))
@@ -98,8 +114,49 @@ def main():
 
 
 
-        save_results(contig_passed_motifs, outdir + '/passed_motifs_{}.fasta'.format(contig))
-        save_results(motifs, outdir + '/final_motifs_{}.fasta'.format(contig))
+        save_results(contig_passed_motifs, outdir + '/passed_motifs_forward_{}.fasta'.format(contig))
+        save_results(motifs, outdir + '/final_motifs_forward_{}.fasta'.format(contig))
+
+
+    for contig in reverse_motifs_lines:
+
+        print('Processing reversed motifs {}...'.format(contig))
+            
+
+        contig_passed_motifs = get_difsignals(
+            reverse_motifs_lines[contig], 
+            reverse_ks_stat_lines[contig], 
+            reverse_effsize_lines[contig],
+            log10_pval_thr = args.ks_t,
+            effsize_thr = args.eff_size
+        )
+
+        plotdir = outdir + '/plots_reverse_{}'.format(contig) 
+        os.mkdir(plotdir)
+
+        motifs = collapse_motifs(extract_motifs(contig_passed_motifs))
+
+        for motif in motifs:
+            plot_motif(sample_motifs[contig], control_motifs[contig], motif, plotdir)
+
+
+
+        save_results(contig_passed_motifs, outdir + '/passed_motifs_reverse_{}.fasta'.format(contig))
+        save_results(motifs, outdir + '/final_motifs_reverse_{}.fasta'.format(contig))
+
+    
+    # MODIFIED POSITIONS EXTRACTION
+
+
+
+    for contig in sample_shifts:
+
+        pass
+        
+
+
+
+
 
     print('Done!')
 

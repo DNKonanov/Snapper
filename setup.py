@@ -4,9 +4,9 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="snapper",
-    version="0.1.3",
-    author="D.N. Kononov",
+    name="snapper-ont",
+    version="0.1.5",
+    author="D.N. Konanov",
     author_email="konanovdmitriy@gmail.com",
     description="Nanopore-based methylation sites caller",
     long_description="snapper",
@@ -26,6 +26,8 @@ setuptools.setup(
     install_requires=[
         'h5py',
         'biopython',
+        'matplotlib',
+        'scipy',
     ],
     entry_points={
         'console_scripts': [
