@@ -4,12 +4,16 @@ This tool is designed to perform a high-sensitive search for modification sites 
 This tool provide a new two-sided and balanced approch to compute statistic for each motif which is likely to be modified.
 
 ## Dependencies
-- python 3.7
+- python 3.7 (later versions might be incompatible because of inner biopython dependencies)
 - ont-tombo
 - h5py
 - biopython
 - matplotlib
 - scipy
+
+## Installation
+
+`pip install snapper'
 
 ## Usage
 
