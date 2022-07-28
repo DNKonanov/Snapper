@@ -18,7 +18,7 @@ This tool provide a new two-sided and balanced approch to compute statistic for 
 ## Usage
 
 Firstly, fast5 files should be resquiggled using [Tombo](https://github.com/nanoporetech/tombo) software. 
-After resquiggling, fast5 files should be converted to multi-fast5 format.
+After resquiggling, fast5 files should be converted to multi-fast5 format using [ont_fast5_api](https://github.com/nanoporetech/ont_fast5_api).
 
 ```
 usage: snapper [-h] [-sample_fast5dir SAMPLE_FAST5DIR] [-control_fast5dir CONTROL_FAST5DIR] [-reference REFERENCE] [-ks_t KS_T] [-eff_size EFF_SIZE] [-outdir OUTDIR] [-n_batches N_BATCHES]
