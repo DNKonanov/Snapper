@@ -13,7 +13,7 @@ This tool provide a new two-sided and balanced approch to compute statistic for 
 
 ## Installation
 
-```pip install snapper```
+```pip install snapper-ont```
 
 ## Usage
 
