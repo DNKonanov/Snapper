@@ -21,8 +21,8 @@ Firstly, fast5 files should be resquiggled using [Tombo](https://github.com/nano
 After resquiggling, fast5 files should be converted to multi-fast5 format using [ont_fast5_api](https://github.com/nanoporetech/ont_fast5_api).
 
 ```
-usage: snapper [-h] [-sample_fast5dir SAMPLE_FAST5DIR] [-control_fast5dir CONTROL_FAST5DIR] [-reference REFERENCE] [-ks_t KS_T] [-eff_size EFF_SIZE] [-outdir OUTDIR] [-n_batches N_BATCHES]
-                      [-n_threads N_THREADS]
+usage: snapper [-h] [-sample_fast5dir SAMPLE_FAST5DIR] [-control_fast5dir CONTROL_FAST5DIR] [-reference REFERENCE] [-ks_t KS_T]
+               [-outdir OUTDIR] [-n_batches N_BATCHES] [-threads THREADS] [-max_motifs MAX_MOTIFS] [-min_conf MIN_CONF]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -31,17 +31,21 @@ optional arguments:
   -control_fast5dir CONTROL_FAST5DIR
                         control multi fast54 dir
   -reference REFERENCE  reference fasta
-  -ks_t KS_T            -log ks_test p-value (default 50)
-  -eff_size EFF_SIZE    Cohen d-effect size (default 0.25)
-  -outdir OUTDIR        output directory name (default Results_%yyyy_%mm_%dd_%hhmmss)
-  -n_batches N_BATCHES  number of parsed fast5 batches (default all)
-  -n_threads N_THREADS  number of threads used (default 8)
+  -ks_t KS_T            -log ks_test p-value (default 5)
+  -outdir OUTDIR        output directory name
+  -n_batches N_BATCHES  number of parsed fast5 batches
+  -threads THREADS      number of threads used (derfault is 8)
+  -max_motifs MAX_MOTIFS
+                        the maximum expected number of motifs extracted
+  -min_conf MIN_CONF    the minimal confidence value. Default is 1000
 
 ```
 
 
-NB! Depending on the data size and the number of threds used, the process can consume up to 1Tb of RAM.
-The authors recommend to specify the same values for `-n_batches` and `-n_threads`.
+Example run command:
+```
+snapper -sample_fast5dir ../HelicobacterMod/fast5/J99_multi/ -control_fast5dir ../HelicobacterMod/fast5/J99_wga_multi/ -reference ../HelicobacterMod/genome/J99.fasta -n_batches 5
+```
 
 ## Output explanation
 
