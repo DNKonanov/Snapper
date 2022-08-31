@@ -1,72 +1,62 @@
 import matplotlib.pyplot as plt
-
+from snapper.src.seq_processing import letter_codes, gen_variants
+import warnings
+warnings.filterwarnings("ignore")
+import seaborn as sns
 
 regular_letters = ['A','G','C','T']
 
 
 
-def get_variants(seq):
 
-    if len(seq) == 4:
-        seq = 'N' + seq + 'N'
-
-    elif len(seq) == 5:
-        seq = seq + 'N'
-
-
-    variants = ['']
-    for letter in seq:
-
-        if letter in regular_letters:
-            for i in range(len(variants)):
-                variants[i] += letter
-
-        if letter not in regular_letters:
-            
-            new_variants = []
-            for i in range(len(variants)):
-                for l in regular_letters:
-                    new_variants.append(variants[i] + l)
-            variants = new_variants
-
-
-    return variants
-
-
-def plot_motif(native_signals: dict, wga_signals: dict, motif: str, outputdir):
+def gen_template(motif_variant, pos_variant):
+    
+    template = ['N',]*11
+    
+    for i, pos in enumerate(pos_variant):
+        template[pos] = motif_variant[i]
         
-
-    motif_variants = get_variants(motif)
-
-    print('Creating pdf for {}'.format(motif))
-    fig, axs = plt.subplots(
-        1, len(motif_variants), 
-        figsize=(5*len(motif_variants),5)
-    )
+    return ''.join(template)
 
 
-    for i in range(len(motif_variants)):
-        MOTIF = motif_variants[i]
 
-        try:
-            axs[i].hist(
-                    native_signals[MOTIF], alpha=0.5, bins=100, density=True, label='native'
-                )
-            axs[i].hist(
-                    wga_signals[MOTIF], alpha=0.5, bins=100, density=True, label='wga'
-                )
+def plot_motif(motif, sample_motifs, control_motifs, savepath):
+
+    _sample = []
+    _control = []
+
+
+    ancMOTIF = gen_template(motif[1], motif[2])
+
+
+    for MOTIF in gen_variants(ancMOTIF):
             
-            axs[i].set_title(MOTIF)
-        except TypeError:
+        
+        if MOTIF not in sample_motifs:
+            continue
             
-            axs.hist(
-                    native_signals[MOTIF], alpha=0.5, bins=100, density=True, label='native'
-                )
-            axs.hist(
-                    wga_signals[MOTIF], alpha=0.5, bins=100, density=True, label='wga'
-                )
-            
-            axs.set_title(MOTIF)
+        
+        
+        _sample += sample_motifs[MOTIF]
+        _control += control_motifs[MOTIF]
+                
 
-    plt.savefig('{}/{}.pdf'.format(outputdir, motif))
+
+    plt.figure(figsize=(8,5))
+
+    plt.grid()
+
+    sns.distplot(x = _control, hist=False, label='Control', color='red')
+    sns.distplot(x = _sample, hist=False, label='Sample', color='green')
+    #plt.savefig('tnp/check3.png', dpi=400)
+
+    plt.title(ancMOTIF)
+
+    plt.xlim(-5,5)
+    plt.xlabel('Normalized signal')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(savepath + '/{}.png'.format(ancMOTIF), format='png', dpi=400)
+
     plt.close()

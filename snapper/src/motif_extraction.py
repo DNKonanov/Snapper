@@ -1,434 +1,162 @@
-from audioop import reverse
-from email import iterators
-from functools import reduce
-from xxlimited import new
-from Bio.SeqIO import parse
 import numpy as np
+from Bio.SeqIO import parse
+from pickle import dump, load
+from snapper.src.methods import collect_variant_counts, is_superset, is_subset, local_filter_seqs, adjust_letter, extend_template, generate_reference_freqs, change_subset_motif
 
 
-letter_codes = {
-    'A': set(['A']),
-    'C': set(['C']),
-    'G': set(['G']),
-    'T': set(['T']),
-    'M': set(['A','C']),
-    'R': set(['A','G']),
-    'W': set(['A','T']),
-    'S': set(['C','G']),
-    'Y': set(['C','T']),
-    'K': set(['G','T']),
-    'V': set(['A','C','G']),
-    'H': set(['A','C','T']),
-    'D': set(['A','G','T']),
-    'B': set(['C','G','T']),
-    'N': set(['A','C','G','T'])
-}
 
-letter_anticodes = {
-    'A': set(['C', 'G', 'T']),
-    'C': set(['A', 'G', 'T']),
-    'G': set(['A', 'C', 'T']),
-    'T': set(['A', 'C', 'G']),
-    'M': set(['G','T']),
-    'R': set(['C','T']),
-    'W': set(['C','G']),
-    'S': set(['A','T']),
-    'Y': set(['C','T']),
-    'K': set(['A','C']),
-    'V': set(['T']),
-    'H': set(['G']),
-    'D': set(['C']),
-    'B': set(['A']),
-    'N': set([])
-}
+def extract_motifs(
+    seqs, 
+    reference, 
+    savepath, 
+    max_motifs,
+    min_conf, 
+    threads=10):
 
 
-letter_codes_rev = {
-    ('A',): 'A',
-    ('C',): 'C',
-    ('G',): 'G',
-    ('T',): 'T',
-    ('A', 'C'): 'M',
-    ('A', 'G'): 'R',
-    ('A', 'T'): 'W',
-    ('C', 'G'): 'S',
-    ('C', 'T'): 'Y',
-    ('G', 'T'): 'K',
-    ('A', 'C', 'G'): 'V',
-    ('A', 'C', 'T'): 'H',
-    ('A', 'G', 'T'): 'D',
-    ('C', 'G', 'T'): 'B',
-    ('A', 'C', 'G', 'T'): 'N'
-}
-
-regular_letters = set(['A','G','C','T'])
+    print()
+    print('Motif enrichment')
+    print()
 
 
-def _get_dist(seq1, seq2):
-    
-    dist = 0
-    
-    for i in range(len(seq1)):
-        if seq1[i] != seq2[i]:
-            dist += 1
-            
-    return dist
+    N_REF = len(set(
+        [reference[i:i+11] for i in range(len(reference) - 11)]
+    ))
+
+    lengths = [4,5,6]
+
+    print('Reference indexing...')
+    #ref_motifs_counter, N_REF = generate_reference_freqs(reference, 11, lengths=lengths)
+
+    with open('/data12/bio/runs-konanov/PROJECTS/HelicobacterMod/notebooks/11mers_CLI/ref_counter.dump', 'rb') as fin:
+        ref_motifs_counter = load(fin)
+
+    import os
+
+    try:
+        os.mkdir(savepath + '/seq_iter/')
+    except FileExistsError:
+        pass
 
 
-def get_seq_clusters(seqs, allowed_dist=2):
 
-    if len(seqs) == 0:
-        return []
-    
-    clusters = [[]]
+    ITERATION = 1
 
-    for seq in seqs:
-    
-        cluster_hit = False
+
+    new_seqs = seqs.copy()
+    with open(savepath + '/seq_iter/seqs_iter_{}.fasta'.format(ITERATION), 'w') as fseqiter:
+
+        for seq in new_seqs:
+            fseqiter.write('>')
+            fseqiter.write(seq)
+            fseqiter.write('\n')
+            fseqiter.write(seq)
+            fseqiter.write('\n')
+
+    seq_array = np.array([list(s) for s in new_seqs])
+
+    initial_seq_array = seq_array.copy()
+
+
+    MOTIFS_SET = []
+    DETAILED_MOTIF_SET = []
+
+    print('ITERATION 1 ({} unexplained 11mers):'.format(len(seq_array)))
+
+
+    variants_counter_list = collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads=threads, lengths=lengths)
+
+
+    ITERATION = 2
+    while variants_counter_list[0][0] > min_conf:
+
         
-        for cluster in clusters:
-            
-            hit = True
-            for seq2 in cluster:
-                if _get_dist(seq, seq2) > allowed_dist:
-                    
-                    hit = False
-                    
-                    break
-                    
-            if hit == True:
-                cluster_hit = True
-                cluster.append(seq)
-        if cluster_hit == False:
-            clusters.append([])
-            clusters[-1].append(seq)
-
-    for cluster in clusters:
-
-        for seq in seqs:
-            if seq in cluster:
-                continue
-            hit = True
-            for seq2 in cluster:
-                if _get_dist(seq, seq2) > allowed_dist:
-                    hit = False
-                    break
-
-            if hit:
-                cluster.append(seq)
-
-
-    clusters.sort(key=len, reverse=True)
-    return clusters
-
-
-
-
-def get_seq_clusters(seqs, allowed_dist=2):
-
-    if len(seqs) == 0:
-        return []
-    
-    clusters = [[]]
-
-    for seq in seqs:
-    
-        cluster_hit = False
         
-        for cluster in clusters:
-            
-            hit = True
-            for seq2 in cluster:
-                if _get_dist(seq, seq2) > allowed_dist:
-                    
-                    hit = False
-                    
-                    break
-                    
-            if hit == True:
-                cluster_hit = True
+        top_variant = variants_counter_list[0]
 
-                current_cluster = list(cluster)
+        extended_top_variant = extend_template(top_variant, maxlength=11)
 
-                cluster.append(seq)
+        positions_to_adjust = []
 
-        if cluster_hit:
-            clusters.append(current_cluster)
-
-        if cluster_hit == False:
-            clusters.append([])
-            clusters[-1].append(seq)
-
-    for cluster in clusters:
-
-        for seq in seqs:
-            if seq in cluster:
-                continue
-            hit = True
-            for seq2 in cluster:
-                if _get_dist(seq, seq2) > allowed_dist:
-                    hit = False
-                    break
-
-            if hit:
-                cluster.append(seq)
-
-
-    clusters = _remove_duplicated_clusters(clusters)
-
-    clusters.sort(key=len, reverse=True)
-    return clusters
-
-
-def _remove_duplicated_clusters(clusters):
-
-    new_clusters = []
-
-    for c in clusters:
-        vec_c = tuple(sorted(c))
-
-        if vec_c not in new_clusters:
-            new_clusters.append(vec_c)
-
-    for i in range(len(new_clusters)):
-        new_clusters[i] = list(new_clusters[i])
-
-    return new_clusters
-
-
-
-
-def get_consensus(cluster, min_lngth=4):
-
-    consensus_var = [tuple(sorted(list(set([seq[i] for seq in cluster])))) for i in range(len(cluster[0]))]
-
-    consensus = ''.join([letter_codes_rev[consensus_var[i]] for i in range(len(consensus_var))])
-
-    cm = True
-    while cm:
+        for i, pos in enumerate(extended_top_variant[2]):
+            if extended_top_variant[1][i] == '.':
+                positions_to_adjust.append((pos, i))
         
-        cm = False
+        modifiable_extended_top_variant = [
+            extended_top_variant[0],
+            list(extended_top_variant[1]),
+            list(extended_top_variant[2])
+        ]
+
         
-        if consensus[0] == 'N':
-            consensus = consensus[1:]
-            cm = True
+        for pos in positions_to_adjust:
+
+            adjusted_pos_letter = adjust_letter(initial_seq_array, extended_top_variant, pos[0], reference)
+            modifiable_extended_top_variant[1][pos[1]] = adjusted_pos_letter
+
+        extended_top_variant = (
+            extended_top_variant[0],
+            tuple(modifiable_extended_top_variant[1]),
+            tuple(modifiable_extended_top_variant[2]),
+        )
+
+        print(extended_top_variant)
+
+        is_superset_check = False
+        is_subset_check = False
+
+        for i, motif in enumerate(MOTIFS_SET):
+            is_superset_check = is_superset(motif, ''.join(extended_top_variant[1]))
+            is_subset_check = is_subset(motif, ''.join(extended_top_variant[1]))
+
+            if is_subset_check:
+                break
+
+            if is_superset_check:
+                break
+
         
-        if consensus[-1] == 'N':
-            consensus = consensus[:-1]
-            cm = True
-    
-    
-    if len(consensus) <= 3:
-        return None
-
-    return consensus
-
-def update_clusters(clusters, update_seq):
-
-    if update_seq is None:
-        return clusters[1:]
-
-    new_seqs = []
-    for c in clusters:
-        for seq in c:
-            if _in(update_seq, seq) == False:
-                new_seqs.append(seq)
-
-    new_seqs = list(set(new_seqs))
-    new_clusters = get_seq_clusters(new_seqs)
-
-    return new_clusters
-
-
-def _gen_variants(seq):
-    variants = ['']
-    
-    for i in range(len(seq)):
-        new_variants = []
-        for l in letter_codes[seq[i]]:
-            
-            for v in variants:
-                new_variants.append(v + l)
-                
-        variants = new_variants
-            
-    return variants
-
-
-def _in(query, template):
-    
-    for v in _gen_variants(query):
-        if v in template:
-            return True
-    return False
-
-
-MOTIF_S_LETTERS = 4
-def check_reduce(clusters, update_seqs):
-
-    reduce_result = []
-
-    for i in range(len(update_seqs)):
-        update_seq = update_seqs[i]
-
-        if update_seq is None:
-            reduce_result.append((0, update_seq, i))
-            continue
-
-        _pass = 0
-
-        for letter in update_seq:
-            if letter in regular_letters:
-                _pass += 1
-
-        if _pass < MOTIF_S_LETTERS:
-            continue
-
-
-        cnt = 0
-        for c in clusters:
-            for seq in c:
-                if _in(update_seq, seq):
-                    cnt += 1
-
-        reduce_result.append((cnt, update_seq, i))
-
-    reduce_result.sort(reverse=True)
-
-    if len(reduce_result) == 0:
-        return (None, None, None)
-
-    return reduce_result[0]
-
-
-TOP_CLUSTERS = 5
-
-def extract_motifs(seqs):
-
-   
-    motifs = []
-
-
-
-    seqs.sort()
-    clusters = get_seq_clusters(seqs)
-
-    iteration = 1
-
-    while len(clusters) > 0:
-        print('\n-------Iteration {}-------'.format(iteration))
-
-
-
-        iteration += 1
+        if is_superset_check == False:
+            MOTIFS_SET.append(''.join(extended_top_variant[1]))
+            DETAILED_MOTIF_SET.append(extended_top_variant)
         
-
-        putative_consensuses = []
-
-        for i in range(min(len(clusters), TOP_CLUSTERS)):
-
-
-            putative_consensuses.append(get_consensus(clusters[i]))
-
-        _, top_consensus, idx = check_reduce(clusters, putative_consensuses)
-
-        print('Motifs cluster: {}'.format(clusters[idx]))
-        print('Extracted motif: {}'.format(top_consensus))
-        print()
-
-        if top_consensus is None:
-            break
-
-        clusters = update_clusters(clusters, top_consensus)
-        motifs.append(top_consensus)
-
-    return motifs
-
-
-def get_seqs(file):
-
-    fasta_m = parse(file, format='fasta')
-
-    seqs = [str(rec.seq) for rec in fasta_m]
-
-    return seqs
-
-
-def merge_motifs(motifs):
-
-    for i in range(len(motifs)):
-
-        m1 = motifs[i]
-
-        for j in range(i + 1, len(motifs)):
-            m2 = motifs[j]
-
-
-
-            if len(m1) != len(m2):
-                continue
-            if _get_dist(m1, m2) < 2:
-                print(m1, m2)
-
-
-
-
-def crop_variant(variant):
-
-    new_variant = variant
-    for i in range(len(variant)):
-        if variant[i] not in regular_letters:
-            new_variant = new_variant[1:]
+        
         else:
+            print('{} already has a supermotif!'.format(extended_top_variant))
+            
+            extended_top_variant = change_subset_motif(
+                DETAILED_MOTIF_SET[i],
+                extended_top_variant,
+                edgelength=2
+            )
+            print('Changed to {}'.format(extended_top_variant))
+            
+
+        if len(MOTIFS_SET) == max_motifs:
             break
 
-    for i in range(len(variant)-1, -1, -1):
-        if variant[i] not in regular_letters:
-            new_variant = new_variant[:-1]
-        else:
-            break
-    
-    
-    return new_variant
+
+        print(MOTIFS_SET)
+
+        new_seqs = local_filter_seqs(new_seqs, extended_top_variant[2], extended_top_variant[1])
+
+        
+        with open(savepath + '/seq_iter/seqs_iter_{}.fasta'.format(ITERATION), 'w') as fseqiter:
+
+            for seq in new_seqs:
+                fseqiter.write('>')
+                fseqiter.write(seq)
+                fseqiter.write('\n')
+                fseqiter.write(seq)
+                fseqiter.write('\n')
 
 
-
-def collapse_motifs(motifs):
-
-    print('Post-alignment...')
-
-    ref_motifs = motifs
-    new_motifs = []
-
-    motifs_to_drop = []
-
-    for motif in motifs:
-        for letter in motif:
-            if letter in regular_letters:
-                continue
-            for var in letter_anticodes[letter]:
-                
-                variant = motif.replace(letter, var)
-                
-                for ref_motif in ref_motifs:
-                    if variant in ref_motif or ref_motif in variant:
-                        
-                        cropped_motif = crop_variant(motif)
-                        
-                        new_motifs.append(cropped_motif)
-                        print('{} was merged to {}'.format(ref_motif, cropped_motif))
-
-                        motifs_to_drop += [motif, ref_motif]
+        seq_array = np.array([list(s) for s in new_seqs])
+        
+        print('ITERATION {} ({} unexplained 11mers):'.format(ITERATION, len(seq_array)))
+        ITERATION += 1
+        
+        variants_counter_list = collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads=threads, lengths=lengths)
 
     
-    filtered_motifs = []
-
-    for m in ref_motifs:
-        if m in motifs_to_drop:
-            continue
-        filtered_motifs.append(m)
-
-    filtered_motifs += new_motifs
-
-    return filtered_motifs                     
- 
+    return DETAILED_MOTIF_SET

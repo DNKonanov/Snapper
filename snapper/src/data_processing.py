@@ -21,7 +21,7 @@ def _get_motifs(k = 6):
 
 
 
-def get_reference(reference_file, target_chr):
+def get_reference(reference_file, target_chr='all'):
 
     ref_file = parse(reference_file, format='fasta')
 
@@ -73,31 +73,19 @@ def get_reference(reference_file, target_chr):
         return refs, reverse_refs
 
 
+MOTIF_LEN=11
 
-def parse_data(fast5dir, reference_file, target_chr='all', n_batches=np.inf, MOTIF_LEN=6):
+def parse_data(fast5dir, reference_file, target_chr='all', n_batches=np.inf ):
 
     refs, reverse_refs = get_reference(reference_file, target_chr)
     
     motifs = {}
-    shifts = {}
 
     reverse_motifs = {}
-    reverse_shifts = {}
 
     for ref in refs:
-        motifs[ref] = {
-            motif: [] for motif in _get_motifs(k = MOTIF_LEN)
-        }
-        reverse_motifs[ref] = {
-            motif: [] for motif in _get_motifs(k = MOTIF_LEN)
-        }
-
-        shifts[ref] = {
-            i: [] for i in range(len(refs[ref]))
-        }
-        reverse_shifts[ref] = {
-            i: [] for i in range(len(reverse_refs[ref]))
-        }
+        motifs[ref] = {}
+        reverse_motifs[ref] = {}
 
     files = [file for file in os.listdir(fast5dir) if '.fast5' in file]
 
@@ -122,22 +110,20 @@ def parse_data(fast5dir, reference_file, target_chr='all', n_batches=np.inf, MOT
                     
                 chrom = file['/{}/Analyses/RawGenomeCorrected_000/BaseCalled_template/Alignment'.format(readname)].attrs['mapped_chrom']  
                  
-                    
                 seq = [t[4].decode() for t in trace]
 
                 str_seq = ''.join(seq).upper()
 
-                
-            
+
                 f = refs[chrom].find(str_seq)
-                
+
                 if f != -1:
-
-                    for i in range(3, len(seq) - 3):
-                        context = str_seq[i-3:i+3]
-
-                        shifts[chrom][f + i].append(trace[i][0])
-
+                    for i in range(5, len(seq)-6):
+                        context = str_seq[i-5:i+6]
+                        
+                        if context not in motifs[chrom]:
+                            motifs[chrom][context] = []
+                            
                         motifs[chrom][context].append(trace[i][0])
 
                     continue
@@ -148,15 +134,17 @@ def parse_data(fast5dir, reference_file, target_chr='all', n_batches=np.inf, MOT
                 if f_reverse != -1:
                     
 
-                    for i in range(3, len(seq) - 3):
-                        context = str_seq[i-3:i+3]
+                    for i in range(5, len(seq)-6):
+                        context = str_seq[i-5:i+6]
 
-                        reverse_shifts[chrom][f + i].append(trace[i][0])
+                        if context not in reverse_motifs[chrom]:
+                            reverse_motifs[chrom][context] = []
 
                         reverse_motifs[chrom][context].append(trace[i][0])
+                    continue
 
 
-    return shifts, reverse_shifts, motifs, reverse_motifs
+    return motifs, reverse_motifs
 
 
 
