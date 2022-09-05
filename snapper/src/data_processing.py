@@ -109,7 +109,9 @@ def parse_data(fast5dir, reference_file, target_chr='all', n_batches=np.inf ):
                     continue
                     
                 chrom = file['/{}/Analyses/RawGenomeCorrected_000/BaseCalled_template/Alignment'.format(readname)].attrs['mapped_chrom']  
-                 
+                
+                if chrom not in motifs:
+                    continue
                 seq = [t[4].decode() for t in trace]
 
                 str_seq = ''.join(seq).upper()
@@ -117,7 +119,9 @@ def parse_data(fast5dir, reference_file, target_chr='all', n_batches=np.inf ):
 
                 f = refs[chrom].find(str_seq)
 
+
                 if f != -1:
+
                     for i in range(5, len(seq)-6):
                         context = str_seq[i-5:i+6]
                         
@@ -130,7 +134,6 @@ def parse_data(fast5dir, reference_file, target_chr='all', n_batches=np.inf ):
                 
             
                 f_reverse = reverse_refs[chrom].find(str_seq)
-                
                 if f_reverse != -1:
                     
 

@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from Bio.SeqIO import parse
 from pickle import dump, load
 from snapper.src.methods import collect_variant_counts, is_superset, is_subset, local_filter_seqs, adjust_letter, extend_template, generate_reference_freqs, change_subset_motif
@@ -11,6 +12,7 @@ def extract_motifs(
     savepath, 
     max_motifs,
     min_conf, 
+    contig_name,
     threads=10):
 
 
@@ -26,17 +28,9 @@ def extract_motifs(
     lengths = [4,5,6]
 
     print('Reference indexing...')
-    #ref_motifs_counter, N_REF = generate_reference_freqs(reference, 11, lengths=lengths)
+    ref_motifs_counter, N_REF = generate_reference_freqs(reference, 11, lengths=lengths)
 
-    with open('/data12/bio/runs-konanov/PROJECTS/HelicobacterMod/notebooks/11mers_CLI/ref_counter.dump', 'rb') as fin:
-        ref_motifs_counter = load(fin)
 
-    import os
-
-    try:
-        os.mkdir(savepath + '/seq_iter/')
-    except FileExistsError:
-        pass
 
 
 
@@ -44,7 +38,16 @@ def extract_motifs(
 
 
     new_seqs = seqs.copy()
-    with open(savepath + '/seq_iter/seqs_iter_{}.fasta'.format(ITERATION), 'w') as fseqiter:
+    try:
+        os.mkdir(savepath + '/seq_iter')
+
+    except:
+        pass
+
+
+    os.mkdir(savepath + '/seq_iter/{}/'.format(contig_name))
+
+    with open(savepath + '/seq_iter/{}/seqs_iter_{}.fasta'.format(contig_name, ITERATION), 'w') as fseqiter:
 
         for seq in new_seqs:
             fseqiter.write('>')
@@ -141,7 +144,7 @@ def extract_motifs(
         new_seqs = local_filter_seqs(new_seqs, extended_top_variant[2], extended_top_variant[1])
 
         
-        with open(savepath + '/seq_iter/seqs_iter_{}.fasta'.format(ITERATION), 'w') as fseqiter:
+        with open(savepath + '/seq_iter/{}/seqs_iter_{}.fasta'.format(contig_name, ITERATION), 'w') as fseqiter:
 
             for seq in new_seqs:
                 fseqiter.write('>')

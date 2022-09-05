@@ -477,5 +477,15 @@ def save_results (motifs, out_fasta):
         cnt = 1
 
         for m in motifs:
-            f.write('>MOTIF_{}\n{}\n'.format(cnt, ''.join(m[1])))
+            f.write('>MOTIF_{} conflevel={}\n{}\n'.format(cnt, m[0], ''.join(m[1])))
+            cnt += 1
+
+
+def save_k_mers (motifs, out_fasta):
+    with open(out_fasta, 'w') as f:
+        
+        cnt = 1
+
+        for m in motifs:
+            f.write('>MOTIF_{}\n{}\n'.format(cnt, m))
             cnt += 1

@@ -3,7 +3,7 @@ from snapper.src.motif_extraction import extract_motifs
 from snapper.src.plotting import plot_motif
 from snapper.src.data_processing import get_reference, parse_data
 from snapper.src.statistics import get_difsignals, get_statistics
-from snapper.src.methods import save_results
+from snapper.src.methods import save_results, save_k_mers
 
 from snapper.src.statistics import SAMPLESIZE, MINSAMPLESIZE
 
@@ -29,7 +29,7 @@ def main():
     parser.add_argument('-threads', type=int, default=8, help='number of threads used (derfault is 8)')
     parser.add_argument('-max_motifs', help='the maximum expected number of motifs extracted', default=20, type=int)
     parser.add_argument('-min_conf', help='the minimal confidence value. Default is 1000', type=float, default=1000)
-
+    parser.add_argument('-target_chr', help='target chromosome name. By default is "all"', type=str, default='all')
     
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
@@ -59,7 +59,7 @@ def main():
     sample_motifs, sample_reverse_motifs = parse_data(
         args.sample_fast5dir, 
         args.reference, 
-        target_chr='all', 
+        target_chr=args.target_chr, 
         n_batches=args.n_batches, 
     )
 
@@ -68,12 +68,29 @@ def main():
     control_motifs, control_reverse_motifs = parse_data(
         args.control_fast5dir, 
         args.reference, 
-        target_chr='all', 
+        target_chr=args.target_chr, 
         n_batches=args.n_batches, 
     )
 
 
-    print('\nForward strand singnals processing...')
+    refs, reverse_refs = get_reference(
+        args.reference,
+        target_chr=args.target_chr
+    )
+
+    for contig in refs:
+        print(contig, len(refs[contig]))
+
+    #contig = args.target_chr
+    #print(
+    #    [len(control_motifs[contig][k]) for k in control_motifs[contig]][:1000]
+    #)
+    
+    #print(contig_passed_motifs)
+    #print(x)
+
+
+    print('\nForward strand signals processing...')
     motifs_lines, ks_stat_lines = get_statistics(
         sample_motifs, 
         control_motifs, 
@@ -82,7 +99,7 @@ def main():
     )
 
 
-    print('\nReverse strand singnals processing...')
+    print('\nReverse strand signals processing...')
     reverse_motifs_lines, reverse_ks_stat_lines = get_statistics(
         sample_reverse_motifs, 
         control_reverse_motifs, 
@@ -90,21 +107,27 @@ def main():
         minsamplesize=MINSAMPLESIZE,
     )
 
-    refs, reverse_refs = get_reference(args.reference)
+    
 
 
     # MOTIFS EXTRACTION
 
     for contig in motifs_lines:
 
-        print('Processing forward motifs {}...'.format(contig))
-            
+        #print(contig, len(refs[contig]))
 
+        print('Processing forward motifs {}...'.format(contig))
+
+            
+        
         contig_passed_motifs = get_difsignals(
             motifs_lines[contig], 
             ks_stat_lines[contig], 
             log10_pval_thr = args.ks_t,
         )
+
+        
+
 
 
         plotdir = outdir + '/plots_forward_{}'.format(contig) 
@@ -115,6 +138,7 @@ def main():
                                 outdir, 
                                 args.max_motifs,
                                 args.min_conf, 
+                                'forward_' + contig,
                                 threads=args.threads
                                 )
 
@@ -130,6 +154,7 @@ def main():
 
     for contig in reverse_motifs_lines:
 
+        print(contig, len(reverse_refs[contig]))
         print('Processing reversed motifs {}...'.format(contig))
             
 
@@ -148,6 +173,7 @@ def main():
                                 outdir, 
                                 args.max_motifs,
                                 args.min_conf, 
+                                'reverse_' + contig,
                                 threads=args.threads
                                 )
 
@@ -157,7 +183,7 @@ def main():
 
 
 
-        save_results(contig_passed_motifs, outdir + '/passed_motifs_reverse_{}.fasta'.format(contig))
+        save_k_mers(contig_passed_motifs, outdir + '/passed_motifs_reverse_{}.fasta'.format(contig))
         save_results(motifs, outdir + '/final_motifs_reverse_{}.fasta'.format(contig))
 
 

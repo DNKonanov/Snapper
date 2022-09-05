@@ -32,7 +32,7 @@ def plot_motif(motif, sample_motifs, control_motifs, savepath):
     for MOTIF in gen_variants(ancMOTIF):
             
         
-        if MOTIF not in sample_motifs:
+        if MOTIF not in sample_motifs or MOTIF not in control_motifs:
             continue
             
         
@@ -50,7 +50,7 @@ def plot_motif(motif, sample_motifs, control_motifs, savepath):
     sns.distplot(x = _sample, hist=False, label='Sample', color='green')
     #plt.savefig('tnp/check3.png', dpi=400)
 
-    plt.title(ancMOTIF)
+    plt.title('{}, confidence = {}'.format(ancMOTIF, motif[0]))
 
     plt.xlim(-5,5)
     plt.xlabel('Normalized signal')
