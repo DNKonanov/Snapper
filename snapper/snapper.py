@@ -81,14 +81,6 @@ def main():
     for contig in refs:
         print(contig, len(refs[contig]))
 
-    #contig = args.target_chr
-    #print(
-    #    [len(control_motifs[contig][k]) for k in control_motifs[contig]][:1000]
-    #)
-    
-    #print(contig_passed_motifs)
-    #print(x)
-
 
     print('\nForward strand signals processing...')
     motifs_lines, ks_stat_lines = get_statistics(
@@ -114,7 +106,6 @@ def main():
 
     for contig in motifs_lines:
 
-        #print(contig, len(refs[contig]))
 
         print('Processing forward motifs {}...'.format(contig))
 
@@ -148,7 +139,7 @@ def main():
 
 
 
-        save_results(contig_passed_motifs, outdir + '/passed_motifs_forward_{}.fasta'.format(contig))
+        save_k_mers(contig_passed_motifs, outdir + '/passed_motifs_forward_{}.fasta'.format(contig))
         save_results(motifs, outdir + '/final_motifs_forward_{}.fasta'.format(contig))
 
 
