@@ -1,6 +1,6 @@
 # Snapper: nanopore-based modification motifs caller
 
-This tool is designed to perform a high-sensitive search for modification sites using ONT sequencing data.
+<img src="logo.png" align="left"> This tool is designed to perform a high-sensitive search for modification sites using ONT sequencing data.
 This tool provide a new two-sided and balanced approch to compute statistic for each motif which is likely to be modified.
 
 ## Dependencies
