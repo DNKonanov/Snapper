@@ -5,7 +5,7 @@ from snapper.src.seq_processing import gen_variants, letter_codes_rev, letter_an
 from scipy.stats import chi2_contingency, mode
 
 
-from multiprocessing import Queue, Process
+from multiprocessing import Process, Manager
 
 
 
@@ -145,8 +145,14 @@ def modify_seq(seq, pos, target_letter):
     return ''.join(newseq)
 
 
+def generate_reference_freqs_parallel(seq_array, batch, dict_per_length):
+
+    for pos_variant, motif_variant in batch:
+        variant_count = extract_template_count(pos_variant, motif_variant, seq_array)
+        dict_per_length[(motif_variant, pos_variant)] = variant_count
+     
     
-def generate_reference_freqs(reference, length, lengths=(4,5,6)):
+def generate_reference_freqs(reference, length, threads, lengths=(4,5,6)):
 
     variants_counter = {}
 
@@ -156,26 +162,41 @@ def generate_reference_freqs(reference, length, lengths=(4,5,6)):
 
     seq_array = np.array([list(s) for s in seqs])
 
-    for LENGTH in lengths:
+    print(len(seq_array))
+    for LENGTH in lengths: 
 
-        variants_counter[LENGTH] = {}
-        
+        print('Reference indexing with length of {}...'.format(LENGTH))
+
+        manager = Manager()
+        dict_per_length = manager.dict()
+
         pos_variants = list(combinations(range(0,11), r=LENGTH))
         pos_variants = filter_pos_variants(pos_variants)
 
         motif_variants = list(product(regular_letters, repeat=LENGTH))
         motif_variants = filter_motifs(motif_variants)
+        
+        batch_len = len(pos_variants)*len(motif_variants)//threads
+        
+        processes = [] #all processes
+        for i in range(threads):
+            try:
+                batch = list(product(pos_variants, motif_variants))[(i)*batch_len:(i+1)*batch_len]
+            except IndexError: 
+                    batch = list(product(pos_variants, motif_variants))[(i)*batch_len:]
+            p = Process(target=generate_reference_freqs_parallel, 
+                                 args = (seq_array, batch, dict_per_length,))
+            
+            processes.append(p)
+            p.start()
 
-        for pos_variant in pos_variants:
-
-            for motif_variant in motif_variants:
-
-                variant_count = extract_template_count(pos_variant, motif_variant, seq_array)
-
-                variants_counter[LENGTH][(motif_variant, pos_variant)] = variant_count
-
-
+        #join processes    
+        [p.join() for p in processes]
+        
+        variants_counter[LENGTH] = dict(dict_per_length)
+              
     return variants_counter, len(seq_array)
+
 
 
 # check if motif2 is superset of motif1
@@ -213,9 +234,8 @@ def is_subset(motif1, motif2, edgelength=2):
     return is_superset(motif2, motif1, edgelength=edgelength)
 
 
-def variant_counts_parallel(seq_array, ref_motifs_counter, N_REF, batch, LENGTH, q):
+def variant_counts_parallel(seq_array, ref_motifs_counter, N_REF, batch, LENGTH, total_variants_counter_list):
         variants_counter_list = [] 
-        
         N_VARIANT = len(seq_array)
         for pos_variant, motif_variant in batch:
             try:
@@ -225,30 +245,29 @@ def variant_counts_parallel(seq_array, ref_motifs_counter, N_REF, batch, LENGTH,
                 variants_counter_list.append((0, motif_variant, pos_variant))
                 
             else:
-                    variant_count = extract_template_count(pos_variant, motif_variant, seq_array)
+                variant_count = extract_template_count(pos_variant, motif_variant, seq_array)
 
                 
-                    if variant_count == 0 and reference_count == 0:
+                if variant_count == 0 and reference_count == 0:
                         variants_counter_list.append((0, motif_variant, pos_variant))
 
-                    else:
+                else:
                         chi2_result = chi2_contingency(
-                            [
-                                [variant_count, N_VARIANT-variant_count],
-                                [reference_count, N_REF-reference_count],
-                            ]
-                        )
+                    [
+                        [variant_count, N_VARIANT-variant_count],
+                        [reference_count, N_REF-reference_count],
+                    ]
+                )
 
                         # chi2_log_pval = -np.log10(chi2_result[1])
                         chi2_statistic = chi2_result[0]
 
                         variants_counter_list.append((chi2_statistic, motif_variant, pos_variant))
 
-        q.put(variants_counter_list)
-        #return variants_counter_list
+        total_variants_counter_list+=variants_counter_list
 
-
-def collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads=10, lengths=(4,5,6)):
+               
+def collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads, lengths=(4,5,6)):
     merged_variants_counter_list = []
     
     for LENGTH in lengths:
@@ -261,9 +280,9 @@ def collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads=10, len
         motif_variants = list(product(regular_letters, repeat=LENGTH))
         motif_variants = filter_motifs(motif_variants)
         
+        #create batch
         batch_len = len(pos_variants)*len(motif_variants)//threads
-        
-        q = Queue() #for all outputs
+        total_variants_counter_list = Manager().list() #for all outputs
         
         processes = [] #all processes
         
@@ -272,18 +291,22 @@ def collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads=10, len
                 batch = list(product(pos_variants, motif_variants))[i*batch_len:(i+1)*batch_len]
             except IndexError: 
                 batch = list(product(pos_variants, motif_variants))[i*batch_len:]
+
             p = Process(target=variant_counts_parallel, 
-                                 args = (seq_array, ref_motifs_counter, N_REF, batch, LENGTH, q,))
-            p.start()
+                                 args = (seq_array, ref_motifs_counter, N_REF, batch, LENGTH, total_variants_counter_list))
             
-        for process in processes:
-            process.join() 
-        for i in range(threads):
-            merged_variants_counter_list+=list(q.get()) # Returns output
+            processes.append(p)
+            p.start()
+        
+        #join processes    
+        [p.join() for p in processes]
+        
+        merged_variants_counter_list+=(list(total_variants_counter_list)) # add to 
+
     merged_variants_counter_list.sort(reverse=True)
 
+        
     return merged_variants_counter_list
-
 
 
 def get_significant_letters(sub_seq_array, top_variant, pos, reference, threshold_ratio):
