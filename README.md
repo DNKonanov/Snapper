@@ -18,7 +18,8 @@ for position-specific motif enrichment. This repository contains not the Snapper
 
 ## Installation
 
-```(base) $ conda create -n snapper python=3.7
+```
+(base) $ conda create -n snapper python=3.7
 (base) $ conda activate snapper
 (snapper) $ conda install -c bioconda ont-fast5-api ont-tombo
 (snapper) $ pip install snapper-ont
