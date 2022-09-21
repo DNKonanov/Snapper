@@ -1,11 +1,5 @@
 from argparse import ArgumentParser
-from snapper.src.motif_extraction import extract_motifs
-from snapper.src.plotting import plot_motif
-from snapper.src.data_processing import get_reference, parse_data
-from snapper.src.statistics import get_difsignals, get_statistics
-from snapper.src.methods import save_results, save_k_mers
 
-from snapper.src.statistics import SAMPLESIZE, MINSAMPLESIZE
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -31,6 +25,15 @@ def main():
     parser.add_argument('-min_conf', help='the minimal confidence value. Default is 1000', type=float, default=1000)
     parser.add_argument('-target_chr', help='target chromosome name. By default is "all"', type=str, default='all')
     
+
+
+    from snapper.src.motif_extraction import extract_motifs
+    from snapper.src.plotting import plot_motif
+    from snapper.src.data_processing import get_reference, parse_data
+    from snapper.src.statistics import get_difsignals, get_statistics
+    from snapper.src.methods import save_results, save_k_mers
+    from snapper.src.statistics import SAMPLESIZE, MINSAMPLESIZE
+
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
@@ -124,6 +127,7 @@ def main():
         plotdir = outdir + '/plots_forward_{}'.format(contig) 
         os.mkdir(plotdir)
 
+        save_k_mers(contig_passed_motifs, outdir + '/passed_motifs_forward_{}.fasta'.format(contig))
         motifs = extract_motifs(contig_passed_motifs, 
                                 refs[contig], 
                                 outdir, 
@@ -139,7 +143,6 @@ def main():
 
 
 
-        save_k_mers(contig_passed_motifs, outdir + '/passed_motifs_forward_{}.fasta'.format(contig))
         save_results(motifs, outdir + '/final_motifs_forward_{}.fasta'.format(contig))
 
 
@@ -159,6 +162,7 @@ def main():
         plotdir = outdir + '/plots_reverse_{}'.format(contig) 
         os.mkdir(plotdir)
 
+        save_k_mers(contig_passed_motifs, outdir + '/passed_motifs_reverse_{}.fasta'.format(contig))
         motifs = extract_motifs(contig_passed_motifs, 
                                 reverse_refs[contig], 
                                 outdir, 
@@ -174,7 +178,6 @@ def main():
 
 
 
-        save_k_mers(contig_passed_motifs, outdir + '/passed_motifs_reverse_{}.fasta'.format(contig))
         save_results(motifs, outdir + '/final_motifs_reverse_{}.fasta'.format(contig))
 
 
