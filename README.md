@@ -1,7 +1,11 @@
+<img src="logo.png" align="left" width=150> 
+
 # Snapper: nanopore-based modification motifs caller
 
-<img src="logo.png" align="left"> This tool is designed to perform a high-sensitive search for modification sites using ONT sequencing data.
-This tool provide a new two-sided and balanced approch to compute statistic for each motif which is likely to be modified.
+This tool is designed to efficiently detect methylation sites using ONT sequencing data.
+Snapper uses balanced approach to compute statistics for each k-mer which is likely to be modified.
+The core feature of Snapper in comparison with other tools is a new high-sensitive greedy algorithm that is used 
+for position-specific motif enrichment. This repository contains not the Snapper tool itself but its pip distribution.
 
 ## Dependencies
 - python 3.7 (later versions might be incompatible because of inner biopython dependencies)
@@ -10,15 +14,22 @@ This tool provide a new two-sided and balanced approch to compute statistic for 
 - biopython
 - matplotlib
 - scipy
+- seaborn
 
 ## Installation
 
-```pip install snapper-ont```
+```(base) $ conda create -n snapper python=3.7
+(base) $ conda activate snapper
+(snapper) $ conda install -c bioconda ont-fast5-api ont-tombo
+(snapper) $ pip install snapper-ont
+```
 
 ## Usage
 
 Firstly, fast5 files should be resquiggled using [Tombo](https://github.com/nanoporetech/tombo) software. 
-After resquiggling, fast5 files should be converted to multi-fast5 format using [ont_fast5_api](https://github.com/nanoporetech/ont_fast5_api).
+After resquiggling, fast5 files should be converted to the multi-fast5 format using [ont_fast5_api](https://github.com/nanoporetech/ont_fast5_api).
+
+A more detailed usage guideline and few usercases are available in [Snapper's documentation](https://snapper-tutorial.readthedocs.io/en/latest/index.html)
 
 ```
 usage: snapper [-h] [-sample_fast5dir SAMPLE_FAST5DIR] [-control_fast5dir CONTROL_FAST5DIR] [-reference REFERENCE] [-ks_t KS_T]
@@ -42,7 +53,7 @@ optional arguments:
 ```
 
 
-Example run command:
+Typical run command:
 ```
 snapper -sample_fast5dir ../HelicobacterMod/fast5/J99_multi/ -control_fast5dir ../HelicobacterMod/fast5/J99_wga_multi/ -reference ../HelicobacterMod/genome/J99.fasta -n_batches 5
 ```
@@ -50,6 +61,10 @@ snapper -sample_fast5dir ../HelicobacterMod/fast5/J99_multi/ -control_fast5dir .
 ## Output explanation
 
 The output directory contains the following files:
-- `passed_motifs_[contig_name].fasta` - all k-mers defined as modifed
-- `final_motifs_[contig_name].fasta` - optimal set of motifs obtained from the passed motifs with greedy algorithm
-- `plots_[contig_name]` - signal distributions for all motifs detected 
+- `passed_motifs_[strand]_[contig_name].fasta` - all k-mers that most likely bring a modified base
+- `final_motifs_[strand]_[contig_name].fasta` - optimal set of motifs generated from the passed motifs by the Snapper greedy algorithm
+- `plots_[strand]_[contig_name]` - signal distribution plots for each extracted motif  
+
+## Citation
+
+soon
