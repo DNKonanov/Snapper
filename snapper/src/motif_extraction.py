@@ -28,7 +28,7 @@ def extract_motifs(
     lengths = [4,5,6]
 
     print('Reference indexing...')
-    ref_motifs_counter, N_REF = generate_reference_freqs(reference, 11, lengths=lengths)
+    ref_motifs_counter, N_REF = generate_reference_freqs(reference, 11, threads, lengths=lengths)
 
 
 
