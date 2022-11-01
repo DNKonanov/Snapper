@@ -20,7 +20,7 @@ def filter_pos_variants_l3(pos_variants):
     for pos_variant in pos_variants:
         _p = sorted(pos_variant)
         
-        if _p[-1] - _p[0] >= 4:
+        if _p[-1] - _p[0] >= 6:
             continue
         
         if tuple(pos_variant) not in filtered_pos_variants:
@@ -54,15 +54,15 @@ def filter_pos_variants(pos_variants):
     
     for pos_variant in filtered_pos_variants:
         
-        for i in range(1, len(pos_variant) - 1):
-            if (pos_variant[i] - pos_variant[i-1] > 1) and (pos_variant[i+1] - pos_variant[i] > 1):
-                continue
-            
+        #for i in range(1, len(pos_variant) - 1):
+        #    if (pos_variant[i] - pos_variant[i-1] > 1) and (pos_variant[i+1] - pos_variant[i] > 1):
+        #        continue
+        #    
         if tuple(pos_variant) in _2_filtered_pos_variants:
             continue
         
-        if pos_variant[1] - pos_variant[0] > 1 or  pos_variant[-1] - pos_variant[-2] > 1:
-            continue
+        #if pos_variant[1] - pos_variant[0] > 1 or  pos_variant[-1] - pos_variant[-2] > 1:
+        #    continue
         
         _2_filtered_pos_variants.append(tuple(pos_variant))
     
@@ -179,11 +179,11 @@ def generate_reference_freqs(reference, length, threads, lengths=(4,5,6)):
         batch_len = len(pos_variants)*len(motif_variants)//threads
         
         processes = [] #all processes
-        for i in range(threads):
+        for i in range(threads+1):
             try:
                 batch = list(product(pos_variants, motif_variants))[(i)*batch_len:(i+1)*batch_len]
             except IndexError: 
-                    batch = list(product(pos_variants, motif_variants))[(i)*batch_len:]
+                batch = list(product(pos_variants, motif_variants))[(i)*batch_len:]
             p = Process(target=generate_reference_freqs_parallel, 
                                  args = (seq_array, batch, dict_per_length,))
             
@@ -199,9 +199,23 @@ def generate_reference_freqs(reference, length, threads, lengths=(4,5,6)):
 
 
 
-# check if motif2 is superset of motif1
-def is_superset(motif1, motif2, edgelength=2):
 
+def add_N(motif):
+    
+    if motif[0] != 'N':
+        motif = 'N' + motif
+    
+    if motif[-1] != 'N':
+        motif += 'N'     
+    
+    return motif
+    
+
+def is_superset(motif1, motif2, edgelength=2):
+    
+    motif1 = add_N(motif1)
+    motif2 = add_N(motif2)
+    
     # just a patch
     if len(motif2) <= len(motif1):
         extended_motif1 = motif1
@@ -228,6 +242,28 @@ def is_superset(motif1, motif2, edgelength=2):
     return global_match
 
 
+def get_alternate_variants(motif_variant):
+
+    seq_variant, pos_variant  = motif_variant[1], motif_variant[2]
+
+    alternate_variants = []
+
+
+    for i in range(11):
+        
+        shift = i - pos_variant[0]
+        
+        pos_alternate = tuple(j+shift for j in pos_variant)
+        if pos_alternate[-1] >= 11:
+            break
+            
+        alternate_variants.append((motif_variant[0], seq_variant, pos_alternate))
+
+
+    return alternate_variants
+
+            
+
 
 
 def is_subset(motif1, motif2, edgelength=2):
@@ -252,17 +288,17 @@ def variant_counts_parallel(seq_array, ref_motifs_counter, N_REF, batch, LENGTH,
                         variants_counter_list.append((0, motif_variant, pos_variant))
 
                 else:
-                        chi2_result = chi2_contingency(
-                    [
-                        [variant_count, N_VARIANT-variant_count],
-                        [reference_count, N_REF-reference_count],
-                    ]
-                )
+                    chi2_result = chi2_contingency(
+                        [
+                            [variant_count, N_VARIANT-variant_count],
+                            [reference_count, N_REF-reference_count],
+                        ]
+                    )
 
-                        # chi2_log_pval = -np.log10(chi2_result[1])
-                        chi2_statistic = chi2_result[0]
+                    # chi2_log_pval = -np.log10(chi2_result[1])
+                    chi2_statistic = chi2_result[0]
 
-                        variants_counter_list.append((chi2_statistic, motif_variant, pos_variant))
+                    variants_counter_list.append((chi2_statistic, motif_variant, pos_variant))
 
         total_variants_counter_list+=variants_counter_list
 
@@ -286,7 +322,7 @@ def collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads, length
         
         processes = [] #all processes
         
-        for i in range(threads):
+        for i in range(threads+1):
             try:
                 batch = list(product(pos_variants, motif_variants))[i*batch_len:(i+1)*batch_len]
             except IndexError: 
@@ -374,7 +410,7 @@ def adjust_letter(seq_array, top_variant, pos, reference, threshold_ratio=5):
 
     sub_seq_array = extract_template_subset(top_variant[2], top_variant[1], seq_array)
 
-    pos_letters = get_significant_letters(sub_seq_array, top_variant, pos, reference, threshold_ratio=threshold_ratio)
+    pos_letters = get_significant_letters(sub_seq_array, top_variant, pos, reference, threshold_ratio=threshold_ratio) 
 
     return letter_codes_rev[pos_letters]
 
@@ -402,7 +438,7 @@ def change_subset_motif(supermotif, submotif, edgelength=2):
     # check left edge case 
     if shift < 0:
         adjusted_subvariant = (
-            None,
+            submotif[0],
             supermotif[1][-shift:],
             tuple(range(submotif[2][0], submotif[2][0] + len(supermotif[1][-shift:])))
         )
@@ -411,7 +447,7 @@ def change_subset_motif(supermotif, submotif, edgelength=2):
     # check rigth edge case
     elif submotif[1][-1] in regular_letters and submotif[2][-1] == 10 and supermotif[1][-1] == 'N':
         adjusted_subvariant = (
-            None,
+            submotif[0],
             supermotif[1][:-1],
             tuple(range(left_pos, 11))
         )
@@ -419,7 +455,7 @@ def change_subset_motif(supermotif, submotif, edgelength=2):
     # common case
     else:
         adjusted_subvariant = (
-            None,
+            submotif[0],
             supermotif[1],
             tuple(range(left_pos, right_pos))
         )
@@ -428,7 +464,7 @@ def change_subset_motif(supermotif, submotif, edgelength=2):
     # just a patch, must be formalized!!
     if len(adjusted_subvariant[1]) != len(adjusted_subvariant[2]):
         adjusted_subvariant = [
-            None,
+            submotif[0],
             supermotif[1],
             tuple(range(left_pos, left_pos + len(supermotif[1])))
         ]  
@@ -437,33 +473,6 @@ def change_subset_motif(supermotif, submotif, edgelength=2):
             adjusted_subvariant[2] = adjusted_subvariant[2][:-1]
     
     return tuple(adjusted_subvariant)
-
-
-
-def adjust_motif(motif, current_motifs_set):
-
-    cut_motif_set = set()
-
-    for current_motif in current_motifs_set:
-        cut_current_motif = [
-            None,
-            current_motif[1],
-            current_motif[2]
-        ]
-        if current_motifs_set[1][0] == 'N':
-            cut_current_motif[1] = cut_current_motif[1][1:]
-            cut_current_motif[2] = cut_current_motif[2][1:]
-        
-        if current_motifs_set[1][-1] == 'N':
-            cut_current_motif[1] = cut_current_motif[1][:-1]
-            cut_current_motif[2] = cut_current_motif[2][:-1]
-        
-        cut_motif_set.add(cut_current_motif)
-
-    
-            
-    
-    pass
 
 
 

@@ -56,7 +56,6 @@ def main():
     except:
         raise FileExistsError('The specified output dir already exists!')
 
-
     print('\nSample data collecting...')
 
     sample_motifs, sample_reverse_motifs = parse_data(
@@ -119,6 +118,11 @@ def main():
             ks_stat_lines[contig], 
             log10_pval_thr = args.ks_t,
         )
+
+        if len(contig_passed_motifs) < 100:
+            print('---The number of k-mers is insufficient for the enrichment process. {} is skipped.---'.format(contig))
+            continue
+
 
         
 

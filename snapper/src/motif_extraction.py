@@ -3,7 +3,7 @@ import os
 from Bio.SeqIO import parse
 from pickle import dump, load
 from snapper.src.methods import collect_variant_counts, is_superset, is_subset, local_filter_seqs, adjust_letter, extend_template, generate_reference_freqs, change_subset_motif
-
+from snapper.src.methods import get_alternate_variants
 
 
 def extract_motifs(
@@ -25,7 +25,7 @@ def extract_motifs(
         [reference[i:i+11] for i in range(len(reference) - 11)]
     ))
 
-    lengths = [4,5,6]
+    lengths = [3,4,5,6]
 
     print('Reference indexing...')
     ref_motifs_counter, N_REF = generate_reference_freqs(reference, 11, threads, lengths=lengths)
@@ -65,6 +65,8 @@ def extract_motifs(
     DETAILED_MOTIF_SET = []
 
     print('ITERATION 1 ({} unexplained 11mers):'.format(len(seq_array)))
+
+
 
 
     variants_counter_list = collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads=threads, lengths=lengths)
@@ -141,8 +143,27 @@ def extract_motifs(
 
         print(MOTIFS_SET)
 
-        new_seqs = local_filter_seqs(new_seqs, extended_top_variant[2], extended_top_variant[1])
+        alternate_variants = get_alternate_variants(extended_top_variant)
 
+        print('Filtering seq_set...')
+
+        n_seqs = len(new_seqs)
+        
+        for variant in alternate_variants:
+            if variant[0] > min_conf:
+
+                new_seqs = local_filter_seqs(new_seqs, variant[2], variant[1])
+        
+
+        # filter seq_set by top_variant to prevent infinite loop
+        if len(new_seqs) == n_seqs:
+            alternate_variants = get_alternate_variants(top_variant)    
+            for variant in alternate_variants:
+                if variant[0] > min_conf:
+
+                    new_seqs = local_filter_seqs(new_seqs, variant[2], variant[1])
+            
+        
         
         with open(savepath + '/seq_iter/{}/seqs_iter_{}.fasta'.format(contig_name, ITERATION), 'w') as fseqiter:
 
