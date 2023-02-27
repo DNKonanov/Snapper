@@ -19,7 +19,7 @@ def main():
     parser.add_argument('-reference', type=str, help='reference fasta')
     parser.add_argument('-ks_t', type=int, default=5, help='-log ks_test p-value (default 5)')
     parser.add_argument('-outdir', type=str, default='default', help='output directory name')
-    parser.add_argument('-n_batches', type=int, default=100, help='number of parsed fast5 batches')
+    parser.add_argument('-coverage', type=int, help='Minimal genome coverage depth (default 30)', default=30)
     parser.add_argument('-threads', type=int, default=8, help='number of threads used (derfault is 8)')
     parser.add_argument('-max_motifs', help='the maximum expected number of motifs extracted', default=20, type=int)
     parser.add_argument('-min_conf', help='the minimal confidence value. Default is 1000', type=float, default=1000)
@@ -28,7 +28,7 @@ def main():
 
 
     from snapper.src.motif_extraction import extract_motifs
-    from snapper.src.plotting import plot_motif
+    from snapper.src.plotting import plot_motif, plot_coverage
     from snapper.src.data_processing import get_reference, parse_data
     from snapper.src.statistics import get_difsignals, get_statistics
     from snapper.src.methods import save_results, save_k_mers
@@ -58,20 +58,20 @@ def main():
 
     print('\nSample data collecting...')
 
-    sample_motifs, sample_reverse_motifs = parse_data(
+    sample_motifs, sample_reverse_motifs, sample_coverages, sample_rev_coverages  = parse_data(
         args.sample_fast5dir, 
         args.reference, 
         target_chr=args.target_chr, 
-        n_batches=args.n_batches, 
+        required_coverage=args.coverage
     )
 
 
     print('\nControl data collecting...')
-    control_motifs, control_reverse_motifs = parse_data(
+    control_motifs, control_reverse_motifs, control_coverages, control_rev_coverages = parse_data(
         args.control_fast5dir, 
         args.reference, 
         target_chr=args.target_chr, 
-        n_batches=args.n_batches, 
+        required_coverage=args.coverage
     )
 
 
@@ -148,6 +148,7 @@ def main():
 
 
         save_results(motifs, outdir + '/final_motifs_forward_{}.fasta'.format(contig))
+        plot_coverage(sample_coverages[contig], control_coverages[contig], contig, f'{outdir}/coverage_forward_{contig}.pdf')
 
 
     for contig in reverse_motifs_lines:
@@ -183,7 +184,7 @@ def main():
 
 
         save_results(motifs, outdir + '/final_motifs_reverse_{}.fasta'.format(contig))
-
+        plot_coverage(sample_rev_coverages[contig], control_rev_coverages[contig], contig, f'{outdir}/coverage_reverse_{contig}.pdf')
 
 
     print('Done!')

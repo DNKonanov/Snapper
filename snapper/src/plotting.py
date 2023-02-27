@@ -73,3 +73,27 @@ def plot_motif(motif, sample_motifs, control_motifs, savepath):
     plt.savefig(savepath + '/{}.png'.format(ancMOTIF), format='png', dpi=400)
 
     plt.close()
+
+
+
+def plot_coverage(sample_coverage, control_coverage, chrom, output):
+
+    plt.figure(figsize=(25,7))
+
+    plt.xlabel('chrom position')
+    plt.ylabel('depth')
+
+    sample_mean_cov = np.round(np.mean(sample_coverage), 0)
+    control_mean_cov = np.round(np.mean(control_coverage), 0)
+
+
+    plt.title(f'{chrom}\nNative mean cov = {sample_mean_cov}X\nControl mean cov = {control_mean_cov}X')
+
+    plt.plot(sample_coverage, label='Native')
+    plt.plot(control_coverage, label='Control')
+
+    plt.legend()
+
+    plt.tight_layout()
+
+    plt.savefig(output, format='pdf')

@@ -216,7 +216,6 @@ def is_superset(motif1, motif2, edgelength=2):
     motif1 = add_N(motif1)
     motif2 = add_N(motif2)
     
-    # just a patch
     if len(motif2) <= len(motif1):
         extended_motif1 = motif1
 
@@ -246,6 +245,15 @@ def get_alternate_variants(motif_variant):
 
     seq_variant, pos_variant  = motif_variant[1], motif_variant[2]
 
+    while seq_variant[0] == 'N':
+        seq_variant = seq_variant[1:]
+        pos_variant = pos_variant[1:]
+
+    while seq_variant[-1] == 'N':
+        seq_variant = seq_variant[:-1]
+        pos_variant = pos_variant[:-1]
+        
+    
     alternate_variants = []
 
 
