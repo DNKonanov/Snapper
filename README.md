@@ -66,6 +66,3 @@ The output directory contains the following files:
 - `final_motifs_[strand]_[contig_name].fasta` - optimal set of motifs generated from the passed motifs by the Snapper greedy algorithm
 - `plots_[strand]_[contig_name]` - signal distribution plots for each extracted motif  
 
-## Citation
-
-soon
