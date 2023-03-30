@@ -3,6 +3,7 @@ from itertools import combinations, product
 import re
 from snapper.src.seq_processing import gen_variants, letter_codes_rev, letter_anticodes
 from scipy.stats import chi2_contingency, mode
+from tqdm import tqdm
 
 
 from multiprocessing import Process, Manager
@@ -170,7 +171,7 @@ def generate_reference_freqs(reference, length, threads, lengths=(4,5,6)):
         manager = Manager()
         dict_per_length = manager.dict()
 
-        pos_variants = list(combinations(range(0,11), r=LENGTH))
+        pos_variants = list(combinations(range(0,length), r=LENGTH))
         pos_variants = filter_pos_variants(pos_variants)
 
         motif_variants = list(product(regular_letters, repeat=LENGTH))
@@ -241,7 +242,7 @@ def is_superset(motif1, motif2, edgelength=2):
     return global_match
 
 
-def get_alternate_variants(motif_variant):
+def get_alternate_variants(motif_variant, lenmotif=11, range_of_filtering=5):
 
     seq_variant, pos_variant  = motif_variant[1], motif_variant[2]
 
@@ -257,12 +258,15 @@ def get_alternate_variants(motif_variant):
     alternate_variants = []
 
 
-    for i in range(11):
+    for i in range(
+        max(0,        pos_variant[0]  - range_of_filtering), 
+        min(lenmotif, pos_variant[-1] + range_of_filtering)
+    ):
         
         shift = i - pos_variant[0]
         
         pos_alternate = tuple(j+shift for j in pos_variant)
-        if pos_alternate[-1] >= 11:
+        if pos_alternate[-1] >= lenmotif:
             break
             
         alternate_variants.append((motif_variant[0], seq_variant, pos_alternate))
@@ -279,46 +283,46 @@ def is_subset(motif1, motif2, edgelength=2):
 
 
 def variant_counts_parallel(seq_array, ref_motifs_counter, N_REF, batch, LENGTH, total_variants_counter_list):
-        variants_counter_list = [] 
-        N_VARIANT = len(seq_array)
-        for pos_variant, motif_variant in batch:
-            try:
-                reference_count = ref_motifs_counter[LENGTH][(motif_variant, pos_variant)]
-                    
-            except KeyError:
-                variants_counter_list.append((0, motif_variant, pos_variant))
+    variants_counter_list = [] 
+    N_VARIANT = len(seq_array)
+    for pos_variant, motif_variant in batch:
+        try:
+            reference_count = ref_motifs_counter[LENGTH][(motif_variant, pos_variant)]
                 
+        except KeyError:
+            variants_counter_list.append((0, motif_variant, pos_variant))
+            
+        else:
+            variant_count = extract_template_count(pos_variant, motif_variant, seq_array)
+
+            
+            if variant_count == 0 and reference_count == 0:
+                    variants_counter_list.append((0, motif_variant, pos_variant))
+
             else:
-                variant_count = extract_template_count(pos_variant, motif_variant, seq_array)
+                chi2_result = chi2_contingency(
+                    [
+                        [variant_count, N_VARIANT-variant_count],
+                        [reference_count, N_REF-reference_count],
+                    ]
+                )
 
-                
-                if variant_count == 0 and reference_count == 0:
-                        variants_counter_list.append((0, motif_variant, pos_variant))
+                # chi2_log_pval = -np.log10(chi2_result[1])
+                chi2_statistic = chi2_result[0]
 
-                else:
-                    chi2_result = chi2_contingency(
-                        [
-                            [variant_count, N_VARIANT-variant_count],
-                            [reference_count, N_REF-reference_count],
-                        ]
-                    )
+                variants_counter_list.append((chi2_statistic, motif_variant, pos_variant))
 
-                    # chi2_log_pval = -np.log10(chi2_result[1])
-                    chi2_statistic = chi2_result[0]
-
-                    variants_counter_list.append((chi2_statistic, motif_variant, pos_variant))
-
-        total_variants_counter_list+=variants_counter_list
+    total_variants_counter_list+=variants_counter_list
 
                
-def collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads, lengths=(4,5,6)):
+def collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads, lengths=(4,5,6), lenmotif=11):
     merged_variants_counter_list = []
     
     for LENGTH in lengths:
 
-        print('\tOBSERVING MOTIFS WITH LENGTH OF', LENGTH)
+        print('\tOBSERVING ANCHOR MOTIFS WITH LENGTH OF', LENGTH)
 
-        pos_variants = list(combinations(range(0,11), r=LENGTH))
+        pos_variants = list(combinations(range(0,lenmotif), r=LENGTH))
         pos_variants = filter_pos_variants(pos_variants)
 
         motif_variants = list(product(regular_letters, repeat=LENGTH))
@@ -329,12 +333,14 @@ def collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads, length
         total_variants_counter_list = Manager().list() #for all outputs
         
         processes = [] #all processes
+        args_list = list(product(pos_variants, motif_variants))
+
         
         for i in range(threads+1):
             try:
-                batch = list(product(pos_variants, motif_variants))[i*batch_len:(i+1)*batch_len]
+                batch = args_list[i*batch_len:(i+1)*batch_len]
             except IndexError: 
-                batch = list(product(pos_variants, motif_variants))[i*batch_len:]
+                batch = args_list[i*batch_len:]
 
             p = Process(target=variant_counts_parallel, 
                                  args = (seq_array, ref_motifs_counter, N_REF, batch, LENGTH, total_variants_counter_list))
@@ -342,10 +348,9 @@ def collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads, length
             processes.append(p)
             p.start()
         
-        #join processes    
         [p.join() for p in processes]
         
-        merged_variants_counter_list+=(list(total_variants_counter_list)) # add to 
+        merged_variants_counter_list+=list(total_variants_counter_list) # add to 
 
     merged_variants_counter_list.sort(reverse=True)
 
@@ -355,7 +360,7 @@ def collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads, length
 
 def get_significant_letters(sub_seq_array, top_variant, pos, reference, threshold_ratio):
 
-    print('\tMotif adjustment...')
+    print('\tLocal motif adjustment...')
 
     reference_letter_freqs = {'A':0, 'G':0, 'T':0, 'C':0}
     variant_subset_letter_freqs = {'A':0, 'G':0, 'T':0, 'C':0}
@@ -393,7 +398,7 @@ def get_significant_letters(sub_seq_array, top_variant, pos, reference, threshol
 
         try:
             ref_letter_ratio = reference_letter_freqs[the_first_letter]/reference_letter_freqs[record[1]]
-        except:
+        except ZeroDivisionError:
             ref_letter_ratio = np.inf
 
         try:

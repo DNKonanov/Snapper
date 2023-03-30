@@ -7,18 +7,9 @@ from itertools import product
 from Bio.SeqIO import parse
 from Bio.Seq import reverse_complement
 import os
+from tqdm import tqdm
 
 letters = ['A','G','C','T']
-
-
-TARGET_CHRS = ['all', 'divided', 'longest', 'specified']
-
-
-def _get_motifs(k = 6):
-
-    return [''.join(s) for s in list(product(letters, repeat=k))]
-
-
 
 
 def get_reference(reference_file, target_chr='all'):
@@ -87,10 +78,15 @@ def get_max_replicon(refs):
         
 
 
+def _get_shifts(MOTIF_LEN):
 
-MOTIF_LEN=11
+    left_shift = int(np.floor(MOTIF_LEN/2))
+    right_shift = int(np.ceil(MOTIF_LEN/2))
 
-def parse_data(fast5dir, reference_file, target_chr='all', required_coverage=30):
+    return left_shift, right_shift
+
+
+def parse_data(fast5dir, reference_file, target_chr='all', required_coverage=30, MOTIF_LEN=11, LONG_MOTIF_LEN=29):
 
     refs, reverse_refs = get_reference(reference_file, target_chr)
 
@@ -102,15 +98,26 @@ def parse_data(fast5dir, reference_file, target_chr='all', required_coverage=30)
         ref: np.zeros(len(refs[ref])) for ref in reverse_refs
     }
 
+    l, r = _get_shifts(MOTIF_LEN)
 
+    long_l, long_r = _get_shifts(LONG_MOTIF_LEN)
 
     motifs = {}
-
     reverse_motifs = {}
+
+    long_motifs = {}
+    long_reverse_motifs = {}
+
+
+
 
     for ref in refs:
         motifs[ref] = {}
         reverse_motifs[ref] = {}
+        
+        long_motifs[ref] = {}
+        long_reverse_motifs[ref] = {}
+
 
     files = [file for file in os.listdir(fast5dir) if '.fast5' in file]
 
@@ -121,15 +128,6 @@ def parse_data(fast5dir, reference_file, target_chr='all', required_coverage=30)
 
     for f in files:
         print('Batch {} out of {}...'.format(batch, len(files)))
-
-        
-        current_forward_coverage = np.round(np.mean(coverages[max_chrom]), 2)
-        current_reverse_coverage = np.round(np.mean(rev_coverages[max_chrom]), 2)
-
-        print(f'Current forward coverage {current_forward_coverage}X ; reverse coverage {current_reverse_coverage}X')
-        
-        if min(current_forward_coverage, current_reverse_coverage) > required_coverage:
-            break
         
         batch += 1
         
@@ -138,7 +136,8 @@ def parse_data(fast5dir, reference_file, target_chr='all', required_coverage=30)
 
             with h5py.File('{}/{}'.format(fast5dir, f), 'r', rdcc_nbytes=1024**3) as file:
 
-                for i in list(file.items()):
+                for i in tqdm(list(file.items()), leave=False, ncols=75):
+
                     
                     readname = i[0]
                     try:
@@ -161,41 +160,77 @@ def parse_data(fast5dir, reference_file, target_chr='all', required_coverage=30)
 
                     if f != -1:
 
-                        for i in range(5, len(seq)-6):
-                            context = str_seq[i-5:i+6]
+                        for i in range(l, len(seq)-r):
+                            context = str_seq[i-l:i+r]
                             
                             if context not in motifs[chrom]:
                                 motifs[chrom][context] = []
                                 
                             motifs[chrom][context].append(trace[i][0])
 
+                        
+                        for i in range(long_l, len(seq) - long_r):
+                            long_context = str_seq[i-long_l:i+long_r]
+
+                            if long_context not in long_motifs[chrom]:
+                                long_motifs[chrom][long_context] = []
+
+                            long_motifs[chrom][long_context].append(trace[i][0])
+
                         if chrom == max_chrom:
                             coverages[chrom][f:f+len(seq)] += 1
 
                         continue
+
+
                     
                 
                     f_reverse = reverse_refs[chrom].find(str_seq)
                     if f_reverse != -1:
                         
 
-                        for i in range(5, len(seq)-6):
-                            context = str_seq[i-5:i+6]
+                        for i in range(l, len(seq)-r):
+                            context = str_seq[i-l:i+r]
 
                             if context not in reverse_motifs[chrom]:
                                 reverse_motifs[chrom][context] = []
 
                             reverse_motifs[chrom][context].append(trace[i][0])
                         
+
+                        for i in range(long_l, len(seq) - long_r):
+                            long_context = str_seq[i-long_l:i+long_r]
+
+                            if long_context not in long_reverse_motifs[chrom]:
+                                long_reverse_motifs[chrom][long_context] = []
+
+                            long_reverse_motifs[chrom][long_context].append(trace[i][0])
+
+
+                        
                         if chrom == max_chrom:
                             rev_coverages[chrom][f_reverse:f_reverse+len(seq)] += 1
                         continue
+        except KeyboardInterrupt:
+            import sys
+            sys.exit()
+            pass
         except:
             print('Invalid batch!')
             continue    
+        
+        
+        current_forward_coverage = np.round(np.mean(coverages[max_chrom]), 2)
+        current_reverse_coverage = np.round(np.mean(rev_coverages[max_chrom]), 2)
+
+        
+        if min(current_forward_coverage, current_reverse_coverage) > required_coverage:
+            break
+
+        print(f'Current forward coverage {current_forward_coverage}X ; reverse coverage {current_reverse_coverage}X')
 
     print(f'Final coverage depth: forward {current_forward_coverage}X ; reverse {current_reverse_coverage}X (with {required_coverage}X threshold)')
-    return motifs, reverse_motifs, coverages, rev_coverages
+    return motifs, reverse_motifs, long_motifs, long_reverse_motifs, coverages, rev_coverages
 
 
 

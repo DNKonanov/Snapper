@@ -4,6 +4,8 @@ from Bio.SeqIO import parse
 from pickle import dump, load
 from snapper.src.methods import collect_variant_counts, is_superset, is_subset, local_filter_seqs, adjust_letter, extend_template, generate_reference_freqs, change_subset_motif
 from snapper.src.methods import get_alternate_variants
+from snapper.src.type_I_RM_system import check_for_completeness
+from snapper.src.custom_filtering import filter_short_by_long_motif
 
 
 def extract_motifs(
@@ -13,7 +15,20 @@ def extract_motifs(
     max_motifs,
     min_conf, 
     contig_name,
-    threads=10):
+
+    
+    sample_motifs, 
+    control_motifs, 
+    sample_long_motifs, 
+    control_long_motifs, 
+    k_size, 
+    long_k_size,  
+    ks_t,
+
+    threads=10,
+    lenmotif=11,
+
+    ):
 
 
     print()
@@ -22,13 +37,13 @@ def extract_motifs(
 
 
     N_REF = len(set(
-        [reference[i:i+11] for i in range(len(reference) - 11)]
+        [reference[i:i+lenmotif] for i in range(len(reference) - lenmotif)]
     ))
 
     lengths = [3,4,5,6]
 
     print('Reference indexing...')
-    ref_motifs_counter, N_REF = generate_reference_freqs(reference, 11, threads, lengths=lengths)
+    ref_motifs_counter, N_REF = generate_reference_freqs(reference, lenmotif, threads, lengths=lengths)
 
 
 
@@ -40,6 +55,7 @@ def extract_motifs(
     new_seqs = seqs.copy()
     try:
         os.mkdir(savepath + '/seq_iter')
+        os.mkdir(savepath + '/motif_refine')
 
     except:
         pass
@@ -64,22 +80,23 @@ def extract_motifs(
     MOTIFS_SET = []
     DETAILED_MOTIF_SET = []
 
-    print('ITERATION 1 ({} unexplained 11mers):'.format(len(seq_array)))
+    print(f'ITERATION 1 ({len(seq_array)} unexplained {lenmotif}-mers):')
 
 
 
 
-    variants_counter_list = collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads=threads, lengths=lengths)
+    variants_counter_list = collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads=threads, lengths=lengths, lenmotif=lenmotif)
 
 
     ITERATION = 2
-    while variants_counter_list[0][0] > min_conf:
+    while variants_counter_list[0][0] > min_conf and len(seq_array) > 0:
+        
+        for v in variants_counter_list[:15]:
+            print('\t', v)
 
-        
-        
         top_variant = variants_counter_list[0]
 
-        extended_top_variant = extend_template(top_variant, maxlength=11)
+        extended_top_variant = extend_template(top_variant, maxlength=lenmotif)
 
         positions_to_adjust = []
 
@@ -120,51 +137,67 @@ def extract_motifs(
             if is_superset_check:
                 break
 
+        refine_outdir = f'{savepath}/motif_refine/{contig_name}/{"".join(extended_top_variant[1])}' 
         
-        if is_superset_check == False:
-            MOTIFS_SET.append(''.join(extended_top_variant[1]))
-            DETAILED_MOTIF_SET.append(extended_top_variant)
+        complete_motif = check_for_completeness(
+                extended_top_variant, 
+                sample_motifs, 
+                control_motifs, 
+                sample_long_motifs, 
+                control_long_motifs, 
+                k_size, 
+                long_k_size, 
+                reference, 
+                outputdir=refine_outdir,
+                log_threshold=ks_t
+                )
         
-        
-        else:
-            print('{} already has a supermotif!'.format(extended_top_variant))
-            
-            extended_top_variant = change_subset_motif(
-                DETAILED_MOTIF_SET[i],
-                extended_top_variant,
-                edgelength=2
+
+        if False:
+
+            new_seqs = filter_short_by_long_motif(
+                complete_motif,
+                list(sample_long_motifs.keys()),
+                new_seqs,
+                k_size=k_size,
+                long_k_size=long_k_size,
             )
-            print('Changed to {}'.format(extended_top_variant))
+
+            MOTIFS_SET.append(''.join(complete_motif[1]))
+            DETAILED_MOTIF_SET.append(complete_motif)
+        
+
+
+        else:
+
+            alternate_variants = get_alternate_variants(extended_top_variant, lenmotif=lenmotif)
+
+            print('Filtering seq_set...')
+
+            n_seqs = len(new_seqs)
             
-
-        if len(MOTIFS_SET) == max_motifs:
-            break
-
-
-        print(MOTIFS_SET)
-
-        alternate_variants = get_alternate_variants(extended_top_variant)
-
-        print('Filtering seq_set...')
-
-        n_seqs = len(new_seqs)
-        
-        for variant in alternate_variants:
-            if variant[0] > min_conf:
-
-                new_seqs = local_filter_seqs(new_seqs, variant[2], variant[1])
-        
-
-        # filter seq_set by top_variant to prevent infinite loop
-        if len(new_seqs) == n_seqs:
-            alternate_variants = get_alternate_variants(top_variant)    
             for variant in alternate_variants:
                 if variant[0] > min_conf:
 
                     new_seqs = local_filter_seqs(new_seqs, variant[2], variant[1])
             
+
+            # filter seq_set by top_variant to prevent infinite loop
+            if len(new_seqs) == n_seqs:
+                alternate_variants = get_alternate_variants(top_variant)    
+                for variant in alternate_variants:
+                    if variant[0] > min_conf:
+
+                        new_seqs = local_filter_seqs(new_seqs, variant[2], variant[1])
+
+            
+            MOTIFS_SET.append(''.join(extended_top_variant[1]))
+            DETAILED_MOTIF_SET.append(extended_top_variant)
+            
         
         
+        print(MOTIFS_SET)
+
         with open(savepath + '/seq_iter/{}/seqs_iter_{}.fasta'.format(contig_name, ITERATION), 'w') as fseqiter:
 
             for seq in new_seqs:
@@ -174,10 +207,13 @@ def extract_motifs(
                 fseqiter.write(seq)
                 fseqiter.write('\n')
 
+        
+        if len(MOTIFS_SET) == max_motifs:
+            break
 
         seq_array = np.array([list(s) for s in new_seqs])
         
-        print('ITERATION {} ({} unexplained 11mers):'.format(ITERATION, len(seq_array)))
+        print(f'ITERATION {ITERATION} ({len(seq_array)} unexplained {lenmotif}-mers):')
         ITERATION += 1
         
         variants_counter_list = collect_variant_counts(seq_array, ref_motifs_counter, N_REF, threads=threads, lengths=lengths)

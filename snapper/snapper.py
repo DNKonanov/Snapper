@@ -1,11 +1,9 @@
 from argparse import ArgumentParser
-
+import os
+import sys
 
 import warnings
 warnings.filterwarnings("ignore")
-
-import os
-import sys
 
 
 
@@ -14,31 +12,36 @@ def main():
 
     parser = ArgumentParser()
 
-    parser.add_argument('-sample_fast5dir', type=str, help='sample multi fast5 dir')
-    parser.add_argument('-control_fast5dir', type=str, help='control multi fast54 dir')
-    parser.add_argument('-reference', type=str, help='reference fasta')
-    parser.add_argument('-ks_t', type=int, default=5, help='-log ks_test p-value (default 5)')
+    parser.add_argument('-sample_fast5dir', type=str, help='sample multi fast5 dir', required=True)
+    parser.add_argument('-control_fast5dir', type=str, help='control multi fast54 dir', required=True)
+    parser.add_argument('-reference', type=str, help='reference genome in the fasta format', required=True)
+    parser.add_argument('-ks_t', type=int, default=3, help='-log ks_test p-value (default 3).')
     parser.add_argument('-outdir', type=str, default='default', help='output directory name')
-    parser.add_argument('-coverage', type=int, help='Minimal genome coverage depth (default 30)', default=30)
-    parser.add_argument('-threads', type=int, default=8, help='number of threads used (derfault is 8)')
+    parser.add_argument('-coverage', type=float, help='minimal genome coverage depth (default 40)', default=40)
+    parser.add_argument('-threads', type=int, default=8, help='number of threads used (default 8)')
+    parser.add_argument('-k_size', type=int, default=15, help='k-mer size, must be odd (default 15)')
+    parser.add_argument('-long_k_size', type=int, default=29, help='k-mer size, must be odd (default 29)')
     parser.add_argument('-max_motifs', help='the maximum expected number of motifs extracted', default=20, type=int)
-    parser.add_argument('-min_conf', help='the minimal confidence value. Default is 1000', type=float, default=1000)
-    parser.add_argument('-target_chr', help='target chromosome name. By default is "all"', type=str, default='all')
+    parser.add_argument('-min_conf', help='the minimal confidence value (default is 1000)', type=float, default=500)
+    parser.add_argument('-target_chr', help='target chromosome name (by default all contigs/replicons are considered)', type=str, default='all')
     
 
 
     from snapper.src.motif_extraction import extract_motifs
-    from snapper.src.plotting import plot_motif, plot_coverage
+    from snapper.src.plotting import plot_motif, plot_coverage, plot_dist
     from snapper.src.data_processing import get_reference, parse_data
-    from snapper.src.statistics import get_difsignals, get_statistics
+    from snapper.src.statistics_methods import get_difsignals, get_statistics
     from snapper.src.methods import save_results, save_k_mers
-    from snapper.src.statistics import SAMPLESIZE, MINSAMPLESIZE
+    from snapper.src.statistics_methods import SAMPLESIZE, MINSAMPLESIZE
 
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
 
     args = parser.parse_args()
+
+    if args.k_size%2 == 0 or args.long_k_size%2 == 0:
+        raise ValueError('Both -k_size and -long_k_size must be odd numbers')
 
 
     if args.outdir == 'default':
@@ -58,20 +61,25 @@ def main():
 
     print('\nSample data collecting...')
 
-    sample_motifs, sample_reverse_motifs, sample_coverages, sample_rev_coverages  = parse_data(
+    sample_motifs, sample_reverse_motifs, sample_long_motifs, sample_long_reverse_motifs, sample_coverages, sample_rev_coverages = parse_data(
         args.sample_fast5dir, 
         args.reference, 
         target_chr=args.target_chr, 
-        required_coverage=args.coverage
+        required_coverage=args.coverage,
+        MOTIF_LEN=args.k_size,
+        LONG_MOTIF_LEN=args.long_k_size,
     )
 
 
+
     print('\nControl data collecting...')
-    control_motifs, control_reverse_motifs, control_coverages, control_rev_coverages = parse_data(
+    control_motifs, control_reverse_motifs, control_long_motifs, control_long_reverse_motifs, control_coverages, control_rev_coverages = parse_data(
         args.control_fast5dir, 
         args.reference, 
         target_chr=args.target_chr, 
-        required_coverage=args.coverage
+        required_coverage=args.coverage,
+        MOTIF_LEN=args.k_size,
+        LONG_MOTIF_LEN=args.long_k_size,
     )
 
 
@@ -90,6 +98,7 @@ def main():
         control_motifs, 
         maxsamplesize=SAMPLESIZE,
         minsamplesize=MINSAMPLESIZE,
+        threads=args.threads
     )
 
 
@@ -99,6 +108,7 @@ def main():
         control_reverse_motifs, 
         maxsamplesize=SAMPLESIZE,
         minsamplesize=MINSAMPLESIZE,
+        threads=args.threads
     )
 
     
@@ -138,12 +148,22 @@ def main():
                                 args.max_motifs,
                                 args.min_conf, 
                                 'forward_' + contig,
-                                threads=args.threads
+                                
+                                sample_motifs[contig], 
+                                control_motifs[contig], 
+                                sample_long_motifs[contig], 
+                                control_long_motifs[contig], 
+                                args.k_size, 
+                                args.long_k_size,  
+                                args.ks_t,
+
+                                threads=args.threads,
+                                lenmotif=args.k_size
                                 )
 
 
         for motif in motifs:
-            plot_motif(motif, sample_motifs[contig], control_motifs[contig], plotdir)
+            plot_dist(motif, sample_motifs[contig], control_motifs[contig], plotdir, lenmotif=args.k_size)
 
 
 
@@ -174,12 +194,24 @@ def main():
                                 args.max_motifs,
                                 args.min_conf, 
                                 'reverse_' + contig,
-                                threads=args.threads
+
+                                sample_reverse_motifs[contig], 
+                                control_reverse_motifs[contig], 
+                                sample_long_reverse_motifs[contig], 
+                                control_long_reverse_motifs[contig], 
+                                args.k_size, 
+                                args.long_k_size,  
+                                args.ks_t,
+
+                                threads=args.threads,
+                                lenmotif=args.k_size
                                 )
+
+        
 
 
         for motif in motifs:
-            plot_motif(motif, sample_motifs[contig], control_motifs[contig], plotdir)
+            plot_dist(motif, sample_reverse_motifs[contig], control_reverse_motifs[contig], plotdir, lenmotif=args.k_size)
 
 
 
