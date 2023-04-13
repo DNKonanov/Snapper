@@ -31,7 +31,7 @@ def gen_template(motif_variant, pos_variant, lenmotif):
 
 
 
-def get_anc_variants(ancMOTIF):
+def get_anc_variants(ancMOTIF, lenmotif=15):
     
     ancMOTIF_c = ancMOTIF
     while ancMOTIF_c[0] == 'N':
@@ -40,7 +40,7 @@ def get_anc_variants(ancMOTIF):
     while ancMOTIF_c[-1] == 'N':
         ancMOTIF_c = ancMOTIF_c[:-1]
         
-    ext_length = 11 - len(ancMOTIF_c)
+    ext_length = lenmotif - len(ancMOTIF_c)
     anc_variants = []
     print(ancMOTIF_c)
     for i in range(ext_length + 1):
@@ -50,19 +50,17 @@ def get_anc_variants(ancMOTIF):
 
 def plot_dist(motif, native_motifs, wga_motifs, savepath, lenmotif=15, MAXSAMPLESIZE = 2000):
     
-
+    print(f'Rendering {"".join(motif[1])}...')
     
     ancMOTIF_init = gen_template(motif[1], motif[2], lenmotif)
 
-    anc_variants = get_anc_variants(ancMOTIF_init)
+    anc_variants = get_anc_variants(ancMOTIF_init, lenmotif=lenmotif)
     
     N = len(anc_variants)
     fig, axs = plt.subplots(N, 2, figsize=(14, 4*N))
     
     motif_cnt = 0
     for ancMOTIF in anc_variants:
-        print(ancMOTIF)
-        
         
         _wga = []
         _native = []
@@ -74,7 +72,7 @@ def plot_dist(motif, native_motifs, wga_motifs, savepath, lenmotif=15, MAXSAMPLE
         for MOTIF in gen_variants(ancMOTIF):
 
 
-            if MOTIF not in wga_motifs:
+            if MOTIF not in wga_motifs or MOTIF not in native_motifs:
                 continue
 
             _wga += wga_motifs[MOTIF]
@@ -84,7 +82,6 @@ def plot_dist(motif, native_motifs, wga_motifs, savepath, lenmotif=15, MAXSAMPLE
 
             #print(len(_wga), len(_native))
         
-        print(len(effect_size_dist))
         if len(effect_size_dist) == 0:
             continue
         if len(_native) > MAXSAMPLESIZE:
@@ -98,6 +95,7 @@ def plot_dist(motif, native_motifs, wga_motifs, savepath, lenmotif=15, MAXSAMPLE
         sns.distplot(x = _native, hist = False, label='native', color='green', ax=axs[motif_cnt][0])
         axs[motif_cnt][0].grid()
 
+        
         axs[motif_cnt][0].set_title('{}, confidence = {}\nmed effsize = {}'.format(ancMOTIF, motif[0], np.median(effect_size_dist)))
         axs[motif_cnt][0].set_xlabel('Normalized signal')
 
@@ -111,6 +109,8 @@ def plot_dist(motif, native_motifs, wga_motifs, savepath, lenmotif=15, MAXSAMPLE
                 np.percentile(effect_size_dist, 75),
                 np.percentile(effect_size_dist, 90)
                 ], 2)
+        
+        title = list(map(str, title))
         axs[motif_cnt][1].set_title(
             f'{" ".join(title)}'
         )
@@ -121,7 +121,7 @@ def plot_dist(motif, native_motifs, wga_motifs, savepath, lenmotif=15, MAXSAMPLE
 
     plt.tight_layout()
 
-    plt.savefig(savepath + '/{}.png'.format(ancMOTIF), format='png', dpi=400)
+    plt.savefig(savepath + '/{}.png'.format("".join(motif[1])), format='png', dpi=400)
     plt.show()
 
 

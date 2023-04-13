@@ -33,23 +33,36 @@ After resquiggling, fast5 files should be converted to the multi-fast5 format us
 A more detailed usage guideline and few usercases are available in [Snapper's documentation](https://snapper-tutorial.readthedocs.io/en/latest/index.html)
 
 ```
-usage: snapper [-h] [-sample_fast5dir SAMPLE_FAST5DIR] [-control_fast5dir CONTROL_FAST5DIR] [-reference REFERENCE] [-ks_t KS_T]
-               [-outdir OUTDIR] [-n_batches N_BATCHES] [-threads THREADS] [-max_motifs MAX_MOTIFS] [-min_conf MIN_CONF]
+usage: snapper [-h] -sample_fast5dir SAMPLE_FAST5DIR -control_fast5dir
+               CONTROL_FAST5DIR -reference REFERENCE [-ks_t KS_T]
+               [-outdir OUTDIR] [-coverage COVERAGE] [-threads THREADS]
+               [-k_size K_SIZE] [-long_k_size LONG_K_SIZE]
+               [-max_motifs MAX_MOTIFS] [-min_conf MIN_CONF]
+               [-target_chr TARGET_CHR]
 
 optional arguments:
   -h, --help            show this help message and exit
   -sample_fast5dir SAMPLE_FAST5DIR
                         sample multi fast5 dir
   -control_fast5dir CONTROL_FAST5DIR
-                        control multi fast54 dir
-  -reference REFERENCE  reference fasta
-  -ks_t KS_T            -log ks_test p-value (default 5)
+                        control multi fast5 dir
+  -reference REFERENCE  reference genome in the fasta format
+  -ks_t KS_T            -log ks_test p-value (default 3).
   -outdir OUTDIR        output directory name
-  -n_batches N_BATCHES  number of parsed fast5 batches
-  -threads THREADS      number of threads used (derfault is 8)
+  -coverage COVERAGE    minimal genome coverage depth (default 40)
+  -threads THREADS      number of threads used (default 8)
+  -k_size K_SIZE        k-mer size, must be odd, 
+                        should not be less than 11 (default 15)
+  -long_k_size LONG_K_SIZE
+                        k-mer size, must be odd, 
+                        should not be less than 21 (default 29)
   -max_motifs MAX_MOTIFS
                         the maximum expected number of motifs extracted
-  -min_conf MIN_CONF    the minimal confidence value. Default is 1000
+  -min_conf MIN_CONF    the minimal confidence value (default is 100)
+  -target_chr TARGET_CHR
+                        target chromosome name (by default all
+                        contigs/replicons are considered)
+
 
 ```
 

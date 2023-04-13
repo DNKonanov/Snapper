@@ -13,16 +13,16 @@ def main():
     parser = ArgumentParser()
 
     parser.add_argument('-sample_fast5dir', type=str, help='sample multi fast5 dir', required=True)
-    parser.add_argument('-control_fast5dir', type=str, help='control multi fast54 dir', required=True)
+    parser.add_argument('-control_fast5dir', type=str, help='control multi fast5 dir', required=True)
     parser.add_argument('-reference', type=str, help='reference genome in the fasta format', required=True)
     parser.add_argument('-ks_t', type=int, default=3, help='-log ks_test p-value (default 3).')
     parser.add_argument('-outdir', type=str, default='default', help='output directory name')
     parser.add_argument('-coverage', type=float, help='minimal genome coverage depth (default 40)', default=40)
     parser.add_argument('-threads', type=int, default=8, help='number of threads used (default 8)')
-    parser.add_argument('-k_size', type=int, default=15, help='k-mer size, must be odd (default 15)')
-    parser.add_argument('-long_k_size', type=int, default=29, help='k-mer size, must be odd (default 29)')
+    parser.add_argument('-k_size', type=int, default=15, help='k-mer size, must be odd, should not be less than 11 (default 15)')
+    parser.add_argument('-long_k_size', type=int, default=29, help='k-mer size, must be odd, should not be less than 21 (default 29)')
     parser.add_argument('-max_motifs', help='the maximum expected number of motifs extracted', default=20, type=int)
-    parser.add_argument('-min_conf', help='the minimal confidence value (default is 1000)', type=float, default=500)
+    parser.add_argument('-min_conf', help='the minimal confidence value (default is 100)', type=float, default=100)
     parser.add_argument('-target_chr', help='target chromosome name (by default all contigs/replicons are considered)', type=str, default='all')
     
 
@@ -38,10 +38,24 @@ def main():
         parser.print_help(sys.stderr)
         sys.exit(1)
 
+
+    
+
     args = parser.parse_args()
 
     if args.k_size%2 == 0 or args.long_k_size%2 == 0:
         raise ValueError('Both -k_size and -long_k_size must be odd numbers')
+    
+    if args.k_size < 11:
+        raise ValueError('-k_size parameter should not be less than 11')
+
+    if args.long_k_size < 21:
+        raise ValueError('-long_k_size parameter should not be less than 21')
+    
+    if args.k_size >= args.long_k_size:
+        raise ValueError('K_SIZE should be less than LONG_K_SIZE')
+    
+
 
 
     if args.outdir == 'default':

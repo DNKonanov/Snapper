@@ -5,7 +5,6 @@ from pickle import dump, load
 from snapper.src.methods import collect_variant_counts, is_superset, is_subset, local_filter_seqs, adjust_letter, extend_template, generate_reference_freqs, change_subset_motif
 from snapper.src.methods import get_alternate_variants
 from snapper.src.type_I_RM_system import check_for_completeness
-from snapper.src.custom_filtering import filter_short_by_long_motif
 
 
 def extract_motifs(
@@ -153,46 +152,29 @@ def extract_motifs(
                 )
         
 
-        if False:
+        alternate_variants = get_alternate_variants(extended_top_variant, lenmotif=lenmotif)
 
-            new_seqs = filter_short_by_long_motif(
-                complete_motif,
-                list(sample_long_motifs.keys()),
-                new_seqs,
-                k_size=k_size,
-                long_k_size=long_k_size,
-            )
+        print('Filtering seq_set...')
 
-            MOTIFS_SET.append(''.join(complete_motif[1]))
-            DETAILED_MOTIF_SET.append(complete_motif)
+        n_seqs = len(new_seqs)
+        
+        for variant in alternate_variants:
+            if variant[0] > min_conf:
+
+                new_seqs = local_filter_seqs(new_seqs, variant[2], variant[1])
         
 
-
-        else:
-
-            alternate_variants = get_alternate_variants(extended_top_variant, lenmotif=lenmotif)
-
-            print('Filtering seq_set...')
-
-            n_seqs = len(new_seqs)
-            
+        # filter seq_set by top_variant to prevent infinite loop
+        if len(new_seqs) == n_seqs:
+            alternate_variants = get_alternate_variants(top_variant)    
             for variant in alternate_variants:
                 if variant[0] > min_conf:
 
                     new_seqs = local_filter_seqs(new_seqs, variant[2], variant[1])
-            
 
-            # filter seq_set by top_variant to prevent infinite loop
-            if len(new_seqs) == n_seqs:
-                alternate_variants = get_alternate_variants(top_variant)    
-                for variant in alternate_variants:
-                    if variant[0] > min_conf:
-
-                        new_seqs = local_filter_seqs(new_seqs, variant[2], variant[1])
-
-            
-            MOTIFS_SET.append(''.join(extended_top_variant[1]))
-            DETAILED_MOTIF_SET.append(extended_top_variant)
+        
+        MOTIFS_SET.append(''.join(extended_top_variant[1]))
+        DETAILED_MOTIF_SET.append(extended_top_variant)
             
         
         
