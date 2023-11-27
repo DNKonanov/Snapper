@@ -69,7 +69,7 @@ optional arguments:
 
 Typical run command:
 ```
-snapper -sample_fast5dir ../HelicobacterMod/fast5/J99_multi/ -control_fast5dir ../HelicobacterMod/fast5/J99_wga_multi/ -reference ../HelicobacterMod/genome/J99.fasta -n_batches 5
+snapper -sample_fast5dir ../HelicobacterMod/fast5/J99_multi/ -control_fast5dir ../HelicobacterMod/fast5/J99_wga_multi/ -reference ../HelicobacterMod/genome/J99.fasta
 ```
 
 ## Output explanation
@@ -79,3 +79,6 @@ The output directory contains the following files:
 - `final_motifs_[strand]_[contig_name].fasta` - optimal set of motifs generated from the passed motifs by the Snapper greedy algorithm
 - `plots_[strand]_[contig_name]` - signal distribution plots for each extracted motif  
 
+## Citation
+
+Dmitry N Konanov, Vladislav V Babenko, Aleksandra M Belova, Arina G Madan, Daria I Boldyreva, Oksana E Glushenko, Ivan O Butenko, Dmitry E Fedorov, Alexander I Manolov, Danil V Krivonos, Vassilii N Lazarev, Vadim M Govorun, Elena N Ilina, [Snapper: high-sensitive detection of methylation motifs based on Oxford Nanopore reads](https://doi.org/10.1093/bioinformatics/btad702), Bioinformatics, 2023

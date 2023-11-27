@@ -20,8 +20,8 @@ def main():
     parser.add_argument('-coverage', type=float, help='minimal genome coverage depth (default 40)', default=40)
     parser.add_argument('-threads', type=int, default=8, help='number of threads used (default 8)')
     parser.add_argument('-k_size', type=int, default=15, help='k-mer size, must be odd, should not be less than 11 (default 15)')
-    parser.add_argument('-long_k_size', type=int, default=29, help='k-mer size, must be odd, should not be less than 21 (default 29)')
-    parser.add_argument('-max_motifs', help='the maximum expected number of motifs extracted', default=20, type=int)
+    parser.add_argument('-long_k_size', type=int, default=29, help='long k-mer size, must be odd, should not be less than 21 (default 29)')
+    parser.add_argument('-max_motifs', help='the maximum expected number of motifs extracted (default 20)', default=20, type=int)
     parser.add_argument('-min_conf', help='the minimal confidence value (default is 100)', type=float, default=100)
     parser.add_argument('-target_chr', help='target chromosome name (by default all contigs/replicons are considered)', type=str, default='all')
     
