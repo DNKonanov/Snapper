@@ -196,6 +196,11 @@ def main():
             reverse_ks_stat_lines[contig], 
             log10_pval_thr = args.ks_t,
         )
+
+        
+        if len(contig_passed_motifs) < 100:
+            print('---The number of k-mers is insufficient for the enrichment process. {}(reverse) is skipped.---'.format(contig))
+            continue
         
 
         plotdir = outdir + '/plots_reverse_{}'.format(contig) 
